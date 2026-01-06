@@ -1,0 +1,66 @@
+---
+title: "Setup and Manage Your SSH Keys"
+sidebarTitle: "SSH Keys"
+description: "Upload an SSH public key to securely access GPU instances and manage keys from the AION console."
+---
+
+#### Step 1: Open the SSH Keys page
+
+In the left sidebar, navigate to `Management → SSH`. SSH keys enable secure access to your GPU instances.
+
+#### Step 2: Start adding a new SSH key
+
+Click the green `Add SSH Key +` button (top-right).
+
+#### Step 3: Get your SSH public key from your local machine
+
+You'll paste your **public** key (a `.pub` file) into the `SSH Key` field.
+
+`To find your public key:`
+
+1. List SSH keys on your terminal:
+
+```bash
+ls -al ~/.ssh
+````
+
+2. Look for a file ending in `.pub` (for example: `id_rsa.pub` or `id_ed25519.pub`).
+3. Print the key to your terminal (example using RSA):
+
+```bash
+cat ~/.ssh/id_rsa.pub
+```
+
+4. Copy the entire output (it usually starts with something like `ssh-rsa` or `ssh-ed25519`).
+
+> `Important:` Paste the full line exactly as shown (no extra spaces or line breaks).
+>
+> `Tip:` If you don’t have a `.pub` file yet, you can generate one with:
+>
+> ```bash
+> ssh-keygen -t ed25519 -C "your_email"
+> ```
+>
+> Press Enter to accept the defaults, then re-run the commands above to copy your new public key.
+
+`To upload the key in AION:`
+
+1. Paste your public key into the `SSH Key` field.
+2. Enter a recognizable `Key Name` (for example: your laptop name).
+3. Click `Add SSH Key`.
+
+#### Step 4: Verify the key is added
+
+Once saved, your key appears in the SSH Keys list.
+
+You can now select this key during GPU instance creation from the `SSH Key` dropdown.
+
+#### Optional: Delete an SSH key
+
+> `Warning:` Deleting an SSH key is permanent and cannot be undone.
+
+1. In the SSH Keys list, click `Delete` on the key you want to remove.
+2. In the confirmation dialog, type the exact key name shown.
+3. Click `I understand the consequences. DELETE this resource`.
+
+
