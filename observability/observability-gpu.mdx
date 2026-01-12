@@ -1,0 +1,64 @@
+---
+title: "GPU Observability"
+sidebarTitle: "GPU Observability"
+description: "Monitor GPU and CPU metrics for your clusters and nodes, adjust time ranges and refresh intervals, and maximize panels for a detailed view."
+---
+
+#### Overview
+
+Observability provides live and historical metrics for your GPU clusters and nodes so you can monitor performance and troubleshoot workloads. Use the dashboard to view GPU metrics (utilization, power, temperature, DRAM, SM clocks), CPU metrics, memory usage, and time-series charts that can be zoomed or maximized for deeper inspection.
+
+#### Access Observability
+
+1. In the left navigation, open `More → Observability`.  
+2. On the Observability landing page, click on the `View Observability` on the `GPU Clusters` card.
+
+The Observability dashboard opens and shows a set of metric panels and controls for selecting clusters, nodes, timeframes and refresh options.
+
+#### Explore the dashboard
+
+Once Observability is open, use these controls to get the data you need:
+
+| Control | What it does |
+| ------- | ---------------------------------------------------------------------- |
+| `Select Cluster` | Choose a cluster id from the dropdown. The metrics on the page reflect the selected cluster. |
+| `Select Node` | Narrow metrics to a specific node within the cluster (if available). |
+| Time range buttons (`6h`, `12h`, `24h`, `Custom`) | Adjust the time window shown by the charts. Use `Custom` for arbitrary ranges. |
+| `Auto refresh` / refresh interval | Choose how frequently the dashboard refreshes the data. |
+| `Aggregation` / data granularity | Select the aggregation interval (rollup / sampling) for the charts to control granularity vs. query volume. |
+| Panel maximize | Click the expand / maximize control on any metric panel to focus on that single chart. |
+
+
+#### Provided metrics
+
+The dashboard includes the following metric panels. Use the table below to quickly find what each panel measures, the typical units, and when to investigate.
+
+| Metric panel | What it measures | Typical units | Notes / when to investigate |
+| ------------ | ---------------- | ------------- | --------------------------- |
+| `GPU Utilization` | Percent of GPU processing resources active (compute + memory usage by the GPU). | `%` | High sustained utilization indicates efficient GPU usage. Very low utilization during expected work suggests scheduling or application issues. |
+| `GPU Power` | Power draw of the GPU. | `W` (watts) | Spikes reflect heavy computation; sustained near-maximum power suggests continuous high load. Sudden drops may indicate throttling or power limits. |
+| `GPU Temperature` | GPU die temperature. | `°C` | Monitor for sustained high temperatures. High temps can cause thermal throttling or instability. |
+| `GPU SM Clocks` | Streaming multiprocessor (SM) clock frequency. | `MHz` | Clock drops can indicate thermal or power throttling. Correlate with utilization and power. |
+| `GPU DRAM` | GPU memory utilization and bandwidth activity. | `GiB` or `MB/s` | High memory usage can cause out-of-memory (OOM) errors. High bandwidth indicates memory-bound workloads. |
+| `CPU Usage (Current)` | Host CPU usage (user + system). | `%` | High host CPU usage can indicate control-plane or sidecar saturation; important when pods appear CPU-bound. |
+| `Memory Usage (Current)` | Host memory usage. | `GiB` or `%` | High memory usage can lead to OOM kills. Check pod memory requests/limits if usage is high. |
+| `Network` (if present) | Network transmit/receive throughput and errors. | `MB/s`, `packets/s` | Watch for saturated NICs or packet errors that affect distributed training or data transfer. |
+| `Disk / Storage` (if present) | I/O rates, latency and usage for local disks. | `IOPS`, `MB/s`, `ms` | High latency or saturated IOPS can slow workloads that perform frequent reads/writes. |
+
+Notes:
+
+
+#### Troubleshooting & tips
+
+- If panels show `No Data Available`:
+  - Verify you selected the correct cluster and node.  
+  - Ensure the time window includes the period when the workload ran.  
+  - Check that cluster agents / exporters are running on the nodes (for on-prem or self-hosted configurations).  
+- If metrics appear sparse or too noisy:
+  - Increase the aggregation interval in the dashboard to reduce noise.  
+  - Use a longer time window to observe trends rather than instantaneous spikes.
+
+`Permissions:` Observability data visibility depends on your account permissions. If you cannot see a cluster, confirm you have access to that project and cluster.
+
+
+

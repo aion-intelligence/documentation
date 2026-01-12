@@ -1,0 +1,130 @@
+---
+title: "Create a Kubernetes Cluster on AION"
+sidebarTitle: "Quickstart on Kubernetes"
+description: "Get a GPU-backed Kubernetes cluster running on AION, retrieve the admin kubeconfig and connect kubectl."
+---
+
+#### Step 1: Open the Kubernetes page
+
+Start by navigating to AION and opening the Kubernetes console.
+
+1. In the left navigation, click `Kubernetes` (under `Home`).
+2. The Kubernetes page shows a world map and region cards with available GPU clusters, GPU types, and pricing.
+
+You will see cards for each region describing GPU type, availability, RAM, interconnect and price.
+
+#### Step 2: Choose a region / cluster and provision
+
+1. Browse the available region cards and the interactive map. Each card displays:
+    - `GPU type` (H100, H200, etc.)
+    - `Availability`
+    - `RAM` / `Interconnect` / `Storage`
+    - `Price per hour`
+2. Select the region / cluster that matches your GPU, memory, and price requirements.
+3. Click `Provision` on the card for the region/cluster you want to deploy.
+
+After you click `Provision`, you will move to the project selection step.
+
+#### Step 3: Create or select a project
+
+You must either pick an existing project or create a new one before launching a cluster.
+
+1. On the Project step, either choose `Existing Projects` or expand `Create New Project`.
+2. If creating a new project, fill in:
+    - `Project Name` (required)
+    - `Project Description` (optional)
+3. Click `Next` to proceed to the cluster configuration step.
+
+Your project will appear in the project dropdown when creating or managing clusters.
+
+#### Step 4: Configure the cluster and launch
+
+Define the cluster configuration and launch it.
+
+1. Fill the cluster configuration fields shown in the UI:
+    - `Cluster Name`: A friendly name such as `myfirstk8s`
+    - `Nodes`: Use the **– / +** controls to set the number of nodes
+    - `Image`: Select a base image (for deep learning stacks this may include PyTorch/CUDA)
+    - `SSH Key`: Select the public key you uploaded earlier
+    - `Kubernetes Version`: Choose the desired K8s version
+    - `CNI Plugin`, `Pod CIDR`, `Service CIDR` and other network fields
+2. Review the **Estimated total cost** shown in the summary panel on the right.
+3. Click the green `Launch` button to create the cluster.
+
+The cluster will show a status such as `Initializing` while nodes come up.
+
+#### Step 5: Retrieve the Kubeconfig command
+
+Once the cluster is created it will appear in the `Current cluster` section.
+
+1. Open the cluster details from the Current cluster list.
+2. Click `KubeConfig` (or the KubeConfig button). A dialog appears containing a command you can run from your workstation to print the admin kubeconfig.
+
+The dialog contains a command resembling:
+
+```bash
+ssh -o StrictHostKeyChecking=no -i <path-to-your-ssh-private-key> ubuntu@k8s-<cluster-id>.groundcontrol-aion.xyz sudo cat /etc/kubernetes/admin.conf
+```
+
+Click `Copy command` or copy the command manually.
+
+> `Important:` Use the exact host and user shown in the dialog. Replace `<path-to-your-ssh-private-key>` with the path to your private key on your workstation.
+
+#### Step 6: Save the kubeconfig locally and connect with kubectl
+
+Run the SSH command (copied in Step 5) locally and redirect the output to a file to save the admin kubeconfig.
+
+```bash
+# Replace the key path and host with the values from the UI
+ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@k8s-<cluster-id>.groundcontrol-aion.xyz 'sudo cat /etc/kubernetes/admin.conf' > ~/aion-admin.conf
+```
+
+Now use the kubeconfig with `kubectl`:
+
+```bash
+# Temporarily use the kubeconfig for the current shell
+export KUBECONFIG=~/aion-admin.conf
+kubectl get nodes
+
+# Or reference directly without exporting
+kubectl --kubeconfig=~/aion-admin.conf get nodes
+```
+
+If you want to merge or replace your default kubeconfig, back it up first:
+
+```bash
+mkdir -p ~/.kube
+cp ~/.kube/config ~/.kube/config.bak
+
+# Replace only if you intend to fully overwrite
+cp ~/aion-admin.conf ~/.kube/config
+kubectl get nodes
+```
+
+#### Step 7: SSH into cluster nodes (optional)
+
+If you need to debug a node:
+
+```bash
+ssh -i ~/.ssh/id_rsa ubuntu@k8s-<cluster-id>.groundcontrol-aion.xyz
+
+# Example checks on the node:
+sudo journalctl -u kubelet -n 200
+# If kubectl is available on the node:
+sudo kubectl get pods -A
+```
+
+#### Important details and troubleshooting
+
+* `Private key:` Use the private key that corresponds to the public key you uploaded to AION.
+* `Username:` Typically `ubuntu` for Ubuntu images. Confirm the username in your instance/cluster details.
+
+**Common issues**
+
+* `kubectl` certificate or permission errors:
+
+  * Ensure you saved the admin kubeconfig from the UI (the command above) and used the correct host and SSH key from the KubeConfig dialog.
+* SSH errors:
+
+  * Ensure your private key file permissions are secure: `chmod 600 ~/.ssh/id_rsa`.
+  * Confirm the path to your private key in the SSH command is correct.

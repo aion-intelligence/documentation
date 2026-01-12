@@ -19,7 +19,14 @@
               "getting-started/introduction",
               "getting-started/quickstart",
               "getting-started/create-first-project",
-              "getting-started/ssh-management"
+              "getting-started/ssh-management",
+              "getting-started/quickstart-kubernetes"
+            ]
+          },
+          {
+            "group": "Monitoring",
+            "pages": [
+              "observability/observability-gpu"
             ]
           }
         ]
