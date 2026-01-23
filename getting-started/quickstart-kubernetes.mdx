@@ -76,55 +76,26 @@ Run the SSH command (copied in Step 5) locally and redirect the output to a file
 
 ```bash
 # Replace the key path and host with the values from the UI
-ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@k8s-<cluster-id>.groundcontrol-aion.xyz 'sudo cat /etc/kubernetes/admin.conf' > ~/aion-admin.conf
+ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@k8s-<cluster-id>.groundcontrol-aion.xyz 'sudo cat /etc/kubernetes/admin.conf' > ~/kubeconfig.yaml
 ```
 
 Now use the kubeconfig with `kubectl`:
 
 ```bash
 # Temporarily use the kubeconfig for the current shell
-export KUBECONFIG=~/aion-admin.conf
+export KUBECONFIG=~/kubeconfig.yaml
 kubectl get nodes
 
 # Or reference directly without exporting
-kubectl --kubeconfig=~/aion-admin.conf get nodes
+kubectl --kubeconfig=~/kubeconfig.yaml get nodes
 ```
 
-If you want to merge or replace your default kubeconfig, back it up first:
 
+#### Step 7: (Optional) SSH into a node
+
+If you need to debug at the node level:
 ```bash
-mkdir -p ~/.kube
-cp ~/.kube/config ~/.kube/config.bak
-
-# Replace only if you intend to fully overwrite
-cp ~/aion-admin.conf ~/.kube/config
-kubectl get nodes
+ssh -i ~/.ssh/id_rsa ubuntu@<INSTANCE_PUBLIC_IP>
 ```
 
-#### Step 7: SSH into cluster nodes (optional)
-
-If you need to debug a node:
-
-```bash
-ssh -i ~/.ssh/id_rsa ubuntu@k8s-<cluster-id>.groundcontrol-aion.xyz
-
-# Example checks on the node:
-sudo journalctl -u kubelet -n 200
-# If kubectl is available on the node:
-sudo kubectl get pods -A
-```
-
-#### Important details and troubleshooting
-
-* `Private key:` Use the private key that corresponds to the public key you uploaded to AION.
-* `Username:` Typically `ubuntu` for Ubuntu images. Confirm the username in your instance/cluster details.
-
-**Common issues**
-
-* `kubectl` certificate or permission errors:
-
-  * Ensure you saved the admin kubeconfig from the UI (the command above) and used the correct host and SSH key from the KubeConfig dialog.
-* SSH errors:
-
-  * Ensure your private key file permissions are secure: `chmod 600 ~/.ssh/id_rsa`.
-  * Confirm the path to your private key in the SSH command is correct.
+Important: Always keep your private SSH key secure. Use chmod 600 ~/.ssh/id_rsa to set correct permissions. Do not share your private key.
