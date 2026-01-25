@@ -28,6 +28,13 @@
             "pages": [
               "observability/observability-gpu"
             ]
+          },
+          {
+            "group": "FAQs",
+            "pages": [
+              "FAQs/pricing-faqs",
+              "FAQs/support-faqs"
+            ]
           }
         ]
       },

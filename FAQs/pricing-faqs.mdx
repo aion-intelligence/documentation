@@ -1,0 +1,80 @@
+---
+title: "Pricing FAQs"
+sidebarTitle: "Pricing FAQs"
+description: "Answers to common questions about wallet billing, usage calculation, auto top-ups, invoices, and payments."
+---
+
+## How is usage computed?
+Usage is computed from the time an instance or resource is **active (running)** until it is **stopped**, and you are charged based on the **hourly price** of the resources you use (GPU/compute, etc.).
+
+## When will I be charged?
+You are charged when you **top up your wallet** (manual top-up or Auto Top-Up), and your **wallet balance is then deducted** as you use services.
+
+## How do we handle partial hours and rounding?
+If usage is less than an hour, it is **prorated based on actual runtime**, and the final amount is **rounded to standard currency precision** (for example, cents).
+
+## Is billing prepaid or postpaid?
+Billing is **prepaid** using your **wallet**—you add funds first, and usage is deducted from the wallet.
+
+## How is wallet balance deducted?
+Your wallet balance is **deducted based on your usage**, and the deductions depend on what resources are running in your account.
+
+## What are the prepaid options (prepaid instruments)?
+You can use **manual wallet top-ups** or enable **Auto Top-Up** to automatically add funds when your wallet gets low.
+
+## Do you offer postpaid billing?
+Postpaid billing is not enabled by default—please **contact the team** to discuss postpaid options.
+
+## Can I set a spend limit or budget alert?
+A dedicated budget alert/spend limit is not available in the billing page right now, but you can control spending by using **manual top-ups** or setting **Auto Top-Up amount and threshold**.
+
+## What happens if my payment fails?
+If a payment fails, the wallet won’t be topped up, and if your wallet becomes too low, you may not be able to start new resources until you add funds or update your payment method.
+
+## Do you offer refunds?
+Refunds are handled **case-by-case**—please contact Support with your invoice/transaction details for review.
+
+## What payment methods are available?
+You can add a **payment card** from the Billing page using **Add Payment Method**.
+
+## How can I change my payment method?
+Go to **Billing & Usage → Add Payment Method** and add your new card (and use that for future top-ups).
+
+## What cards are accepted?
+Major **credit/debit cards** are supported, and the Add Payment Method flow will confirm if your card is accepted.
+
+## What currency do we accept?
+Payments and wallet top-ups are processed in **USD ($)**.
+
+## Is there any minimum payment amount?
+For **manual top-ups**, you can top up **any amount**; for **Auto Top-Up**, the UI requires a **minimum of $50** for both the top-up amount and the minimum threshold.
+
+## If I stop an instance, do I still get charged?
+If the instance is stopped, compute charges stop, but you may still be charged for **other attached resources** (like storage) if they remain active.
+
+## If my Kubernetes cluster is “idle,” do I still get charged?
+Yes—if your cluster still has **running nodes/resources**, you will continue to be charged even if workloads are idle.
+
+## What happens if my wallet balance is too low?
+If your wallet is too low, you may be unable to start new resources, and existing workloads may be restricted until you top up.
+
+## How does Auto Top-Up work?
+Auto Top-Up adds funds automatically when your wallet balance goes **below your minimum threshold**, and it tops up the amount you configured.
+
+## Where can I manage Auto Top-Up settings?
+You can manage it from **Billing & Usage (Overview)** and set the **top-up amount** and **minimum threshold** after adding a payment method.
+
+## Can I turn Auto Top-Up off?
+Yes, you can switch **Auto Top-Up Off** from the Billing & Usage page.
+
+## Where can I see my wallet top-ups and deductions?
+You can always see your **wallet balance** at the top (Balance), and you can view **usage-based deductions** in **Billing & Usage → Usage** and billing records in **Invoices**.
+
+## Where can I see detailed usage (GPU hours, node hours, storage, etc.)?
+Go to **Billing & Usage → Usage** to view usage by service and time range.
+
+## Can I export usage or transactions?
+You can **download invoices** from **Billing & Usage → Invoices**; if you need additional export options, contact Support.
+
+## Will I receive invoices by email?
+Not right now—**invoices are not emailed** currently, but you can download them from **Billing & Usage → Invoices**.

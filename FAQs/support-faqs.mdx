@@ -1,0 +1,81 @@
+---
+title: "Support FAQs"
+sidebarTitle: "Support FAQs"
+description: "Troubleshooting help for instance creation, connectivity, stuck states, availability, GPU options, and SSH key management."
+---
+
+## Instance is not getting created, what should I do?
+If an instance fails to create, it’s usually caused by **capacity**, **configuration**, or **billing/wallet** issues.
+
+**Try the following:**
+- Confirm your **wallet balance** has enough funds (Billing & Usage → Overview).
+- Double-check your selected **region**, **instance type**, and **GPU category**.
+- Try creating the instance with a **smaller GPU/shape** or a different configuration.
+- If the UI shows an error message, copy it and include it in your support request.
+
+**If it still fails:** contact **Support** with all the details.
+
+
+## My instance is stuck (creating/starting/stopping/deleting). What can I do?
+A stuck instance is usually waiting on underlying capacity, networking, or a pending action.
+You can try to Refresh the page and check the updated status. Or contact Support team.
+
+
+## My instance IP is not working, what should I check?
+To connect to your instance, first confirm the instance is in a **Running** state and that you are using the IP shown in the instance card. Make sure you are connecting with the **same SSH key** that you added on the platform and selected during instance creation, 
+and use the correct username. Also ensure your local network or firewall allows outbound connections to the instance.
+
+If the IP is still unreachable or SSH continues to fail, contact Support team.
+
+
+## SSH is not working, how do I troubleshoot?
+SSH failures are usually caused by a wrong key, username, network rules, or connecting to the wrong IP.
+
+**Try the following:**
+- Confirm you are using the **correct public IP** for the instance.
+- Confirm you are using the **correct SSH key** that was associated with the instance.
+- Confirm you are using the correct **SSH username** for your OS image (varies by image).
+- Ensure your network/firewall rules allow **TCP port 22** from your IP.
+- Try SSH in verbose mode to see what fails:
+  - `ssh -vvv -i /path/to/key user@<instance-ip>`
+
+**If the instance was created without the correct key:** you may need to recreate it with the correct SSH key.
+
+
+
+## My instance won’t delete, what should I do?
+If deletion is stuck, it may be blocked by a pending operation or backend cleanup.
+Also you can refresh the console and re-check the instance state.If it remains stuck, you can contact the Support team.
+
+
+## “Availability not present" what does it mean?
+This usually means there is **no capacity available** for the selected resource in that region at the moment.
+
+**What you can do:**
+- Try a different **GPU type/size**.
+- Try a different **region** (if available to your account).
+- Retry later, as capacity can change.
+
+If you need guaranteed capacity, contact Support to discuss options.
+
+
+
+## “GPU category not present”, what does it mean?
+This indicates the selected GPU category is **not currently available** in the selected region.
+
+**What you can do:**
+- Change the **region** and check again.
+- Choose a different GPU.
+- Contact Support if you need a particular GPU for your organization.
+
+
+## How do I manage SSH keys (maintenance and bookkeeping)?
+You can manage keys from the console under:
+**Management → SSH**
+
+**Best practices:**
+- Give keys clear names (for example: `alice-macbook-2026`, `ci-deploy-key`).
+- Remove old or unused keys to reduce risk.
+- Rotate keys periodically (add the new key first, then remove the old one).
+- Keep a secure backup of private keys—private keys cannot be recovered if lost.
+- Track which key is used by which project/team to avoid access issues later.
