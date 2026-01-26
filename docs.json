@@ -33,7 +33,16 @@
             "group": "FAQs",
             "pages": [
               "FAQs/pricing-faqs",
-              "FAQs/support-faqs"
+              "FAQs/support-faqs",
+              "FAQs/notification-faqs"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/checkpoint-s3",
+              "guides/training-runbook",
+              "guides/gpu-cluster-observability"
             ]
           }
         ]

@@ -1,0 +1,203 @@
+---
+title: GPU Cluster Observability & Diagnostics
+description: A comprehensive guide to monitoring cluster health, debugging training bottlenecks, and validating hardware stability using burn tests and NCCL benchmarks.
+---
+
+This guide covers GPU debugging, burn tests, NCC tests, and using the observability dashboard to monitor and troubleshoot your cluster.
+
+## Table of Contents
+
+- [Observability Dashboard](#observability-dashboard)
+- [GPU Debugging](#gpu-debugging)
+- [Burn Test](#burn-test)
+- [NCC Test](#ncc-test)
+
+
+## Observability Dashboard
+Real-time visualization of cluster health metrics, allowing you to track resource utilization across specific nodes and timeframes to ensure optimal performance.
+
+Access the Observability dashboard from the left sidebar under **MORE > Observability**.
+
+### Selecting Nodes to Monitor
+
+1. **Select Cluster**: Choose your cluster from the dropdown (e.g., `k8s-7xdu304ghh-v1`)
+2. **Select Nodes**: Choose one or more nodes to monitor (e.g., `k8s-7xdu304ghh-v1-node-1`)
+3. **Set Time Range**: Use the time range buttons to select the monitoring window:
+   - Quick options: `6h`, `12h`, `24h`
+   - Or use `Custom` for a specific range
+
+### GPU Metrics (Time Series)
+
+| Metric | Description |
+|--------|-------------|
+| **GPU Utilisation** | Percentage of time the GPU was actively processing CUDA kernels (0-100%)
+| **GPU Power** | Power consumption in watts | 
+| **GPU Temperature** | Temperature in °C |
+| **GPU SM Clocks** | Streaming Multiprocessor clock frequency in MHz |
+| **GPU DRAM** | GPU memory usage in MiB |
+
+### CPU Metrics (Gauges)
+
+| Metric | Description |
+|--------|-------------|
+| **CPU Usage (Current)** | Real-time CPU utilization percentage |
+| **Memory Usage (Current)** | Real-time system RAM consumption |
+
+
+
+## GPU Debugging
+Systematic workflows to identify performance bottlenecks, diagnose thermal throttling, and resolve common training failures by correlating resource metrics.
+
+### Steps to Debug on the Observability Screen
+
+1. **Navigate to Observability**
+   - Click **Observability** in the left sidebar under MORE
+
+2. **Select Your Target**
+   - Choose the cluster from **Select Cluster** dropdown
+   - Select the specific node(s) from **Select Nodes** dropdown
+
+3. **Set Appropriate Time Range**
+   - For recent issues: Use `6h`, `12h`, or `24h`
+   - For historical analysis: Use `Custom`
+
+4. **Analyze GPU Utilisation**
+   - Look for patterns correlating with your task progress
+   - Sustained ~100% indicates the GPU is consistently executing CUDA kernels
+   - Periodic dips suggest idle time between kernel launches (data loading, synchronization)
+
+5. **Check GPU Temperature and SM Clocks**
+   - If temperature approaches 80-85°C and SM Clocks drop, thermal throttling is occurring
+   - Normal operation: SM Clocks stable around 2100 MHz or as per GPU specs
+
+6. **Monitor GPU DRAM**
+   - Gradual increase without release may indicate memory leak
+   - Sudden spikes near capacity risk OOM errors
+
+7. **Correlate with CPU Metrics**
+   - High CPU Usage + Low GPU Utilisation = Data pipeline bottleneck (GPU waiting for data)
+   - Low CPU Usage + Low GPU Utilisation = Task may be idle or blocked
+
+### Common Workload Patterns
+
+| What You See | GPU Utilisation | Other Metrics | Likely Cause |
+|--------------|----------------|---------------|--------------|
+| **Training running smoothly** | High (80-100%), steady | Stable SM Clocks, Temperature < 80°C | Workload is GPU-bound as expected |
+| **Training slower than expected** | Periodic dips to 0% | High CPU Usage | Data loading can't keep up with GPU |
+| **Job crashes with OOM** | Drops before crash | GPU DRAM near max | Batch size too large for GPU memory |
+| **Training stalls or hangs** | Drops to 0%, stays low | Low CPU, low GPU Power | Deadlock, NCCL timeout, or I/O wait |
+| **Inconsistent training speed** | Fluctuating | Variable SM Clocks | Contention from other workloads on node |
+| **Gradual slowdown over time** | Decreasing trend | Rising GPU DRAM | Memory leak in training code |
+| **Multi-GPU scaling issues** | Low on some GPUs | Uneven GPU DRAM usage | Imbalanced data distribution or model parallelism |
+| **Job fails after hours** | Was normal, then drops | Temperature was elevated | Potential hardware instability |
+
+
+
+## Burn Test
+Stress-testing protocols designed to push GPUs to their thermal and power limits to ensure hardware stability before production deployment.
+
+### Overview
+
+Burn tests stress-test GPUs to verify stability under sustained high load. This helps identify hardware issues before deploying production workloads.
+
+### Steps to Perform Burn Test
+
+1. **SSH into the Node**
+   ```bash
+   ssh <node-address>
+   ```
+
+2. **Install gpu-burn**
+   ```bash
+   git clone https://github.com/wilicc/gpu-burn.git
+   cd gpu-burn
+   make
+   ```
+
+3. **Run the Burn Test**
+   ```bash
+   # Run for 60 seconds (adjust duration as needed)
+   ./gpu_burn 60
+   ```
+
+4. **Monitor on Observability Dashboard**
+
+   Open the Observability dashboard and watch for:
+
+   | Metric | Expected During Burn Test |
+   |--------|--------------------------|
+   | GPU Utilisation | ~100% sustained (continuous CUDA kernel execution) |
+   | GPU Power | Near TDP (max power) |
+   | GPU Temperature | Rising, should stay < 85°C |
+   | GPU SM Clocks | Stable at boost frequency (~2100 MHz) |
+   | GPU DRAM | Elevated but stable |
+
+5. **Interpret Results**
+   - **PASS**: All metrics stable, no SM Clock drops, temperature under control
+   - **FAIL**: SM Clocks dropping (throttling), temperature exceeding limits, or computation errors in terminal
+
+### What to Capture
+
+{/* Placholders for screenshots:
+- Burn test terminal output showing no errors
+- Observability dashboard GPU metrics during the test */}
+
+
+## NCC Test
+Benchmarks for validating inter-GPU communication bandwidth and latency (NVLink/PCIe), which are essential for distributed training performance.
+
+### Overview
+
+NCC (NCCL - NVIDIA Collective Communications Library) tests verify GPU-to-GPU communication performance, essential for distributed training workloads.
+
+
+### Steps to Perform NCC Test
+
+1. **SSH into the Node**
+   ```bash
+   ssh <node-address>
+   ```
+
+2. **Install nccl-tests**
+   ```bash
+   git clone https://github.com/NVIDIA/nccl-tests.git
+   cd nccl-tests
+   make
+   ```
+
+3. **Run All-Reduce Test**
+   ```bash
+   # Test with all available GPUs
+   ./build/all_reduce_perf -b 8 -e 256M -f 2 -g <num_gpus>
+   ```
+
+4. **Monitor on Observability Dashboard**
+
+   | Metric | Expected During NCC Test |
+   |--------|-------------------------|
+   | GPU Utilisation | Periodic bursts during collective operations |
+   | GPU DRAM | Active memory transfers visible |
+   | CPU Usage | Low (GPU-to-GPU communication) |
+
+5. **Analyze Terminal Output**
+
+   The test outputs bandwidth numbers. Compare against expected values:
+
+   | Interconnect | Expected Bandwidth |
+   |--------------|-------------------|
+   | NVLink 3.0 | ~600 GB/s |
+   | NVLink 4.0 | ~900 GB/s |
+   | PCIe 4.0 | ~25 GB/s |
+
+### What to Capture
+
+{/* Placholders for screenshots:
+- NCC test terminal output showing bandwidth results
+- Observability dashboard GPU metrics during the test */}
+
+
+## Additional Resources
+
+- [NVIDIA GPU Burn](https://github.com/wilicc/gpu-burn)
+- [NCCL Tests](https://github.com/NVIDIA/nccl-tests)
+- [NVIDIA DCGM Documentation](https://docs.nvidia.com/datacenter/dcgm/latest/)
