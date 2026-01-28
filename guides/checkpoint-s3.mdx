@@ -1,0 +1,268 @@
+---
+title: Checkpointing Training to Amazon S3
+description: Learn reliable ways to save and restore training checkpoints to Amazon S3 so you can resume after preemptions, crashes, or maintenance using the Amazon S3 Connector for PyTorch, PyTorch Lightning, s3fs-fuse, or AWS CLI sync.
+---
+
+
+## Table of Contents
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Checkpointing Methods](#checkpointing-methods)
+  - [AWS S3 Torch Connector](#aws-s3-torch-connector)
+  - [PyTorch Lightning](#pytorch-lightning)
+  - [Mounting S3 as Filesystem (s3fs-fuse)](#mounting-s3-as-filesystem-s3fs-fuse)
+  - [Manual Sync with AWS CLI](#manual-sync-with-aws-cli)
+- [Choosing the Right Method](#choosing-the-right-method)
+
+
+## Overview
+
+Checkpointing saves your model's state during training, allowing you to:
+
+- **Resume training** after interruptions (preemptions, crashes, maintenance)
+- **Recover from failures** without losing hours of training progress
+- **Enable spot instance usage** for cost savings with fault tolerance
+
+Storing checkpoints in S3 provides durable, accessible storage that persists beyond the lifetime of your training nodes.
+
+
+## Prerequisites
+Before implementing a checkpointing strategy, you must establish a secure and efficient connection between your training environment and Amazon S3.
+### Create an S3 Bucket
+You need a dedicated container for your model artifacts. It is highly recommended to create this bucket in the same region as your training instances to minimize data transfer costs and latency.
+1. Via AWS Console
+   - Navigate to S3 in the AWS Console
+   - Click **Create bucket**
+   - Choose a unique bucket name (e.g., `my-training-checkpoints`)
+   - Select your preferred region
+   - Configure access settings as needed
+
+2. Via AWS CLI
+   ```bash
+   aws s3 mb s3://my-training-checkpoints --region us-east-1
+   ```
+
+### Configure AWS Credentials
+Your training script requires permissions to `PutObject` and `GetObject` in your S3 bucket.
+Ensure your training environment has AWS credentials configured:
+
+```bash
+# Option 1: Environment variables
+export AWS_ACCESS_KEY_ID=<your-access-key>
+export AWS_SECRET_ACCESS_KEY=<your-secret-key>
+export AWS_DEFAULT_REGION=us-east-1
+
+# Option 2: AWS credentials file (~/.aws/credentials)
+aws configure
+```
+
+
+## Checkpointing Methods
+There are multiple strategies for integrating Amazon S3 into your training loop, each offering different trade-offs between performance, ease of implementation, and code intrusiveness.
+
+### AWS S3 Torch Connector
+
+The official AWS connector for PyTorch provides native S3 integration with optimized streaming.
+
+#### Installation
+
+```bash
+pip install s3torchconnector
+```
+
+#### Saving Checkpoints
+
+```python
+from s3torchconnector import S3Checkpoint
+
+# Initialize the checkpoint handler
+checkpoint = S3Checkpoint(region="us-east-1")
+
+# Save model checkpoint directly to S3
+checkpoint_path = "s3://my-training-checkpoints/model_epoch_10.pt"
+
+with checkpoint.writer(checkpoint_path) as writer:
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss,
+    }, writer)
+```
+
+#### Loading Checkpoints
+
+```python
+from s3torchconnector import S3Checkpoint
+
+checkpoint = S3Checkpoint(region="us-east-1")
+checkpoint_path = "s3://my-training-checkpoints/model_epoch_10.pt"
+
+with checkpoint.reader(checkpoint_path) as reader:
+    checkpoint_data = torch.load(reader)
+
+model.load_state_dict(checkpoint_data['model_state_dict'])
+optimizer.load_state_dict(checkpoint_data['optimizer_state_dict'])
+start_epoch = checkpoint_data['epoch']
+```
+
+
+### PyTorch Lightning
+
+PyTorch Lightning uses fsspec to write checkpoints directly to S3 with minimal configuration.
+
+#### Installation
+
+```bash
+pip install lightning s3fs
+```
+
+#### Basic S3 Checkpointing
+
+```python
+from lightning.pytorch import Trainer
+
+trainer = Trainer(
+    # Lightning uses fsspec to write directly to S3
+    default_root_dir="s3://my-training-checkpoints/experiment-1/",
+    enable_checkpointing=True,
+)
+
+trainer.fit(model)
+```
+
+#### Resuming from S3 Checkpoint
+
+```python
+from lightning.pytorch import Trainer
+
+trainer = Trainer(
+    default_root_dir="s3://my-training-checkpoints/experiment-1/",
+    enable_checkpointing=True,
+)
+
+# Resume from a specific checkpoint
+trainer.fit(
+    model,
+    ckpt_path="s3://my-training-checkpoints/experiment-1/checkpoints/last.ckpt",
+)
+```
+
+
+### Mounting S3 as Filesystem (s3fs-fuse)
+
+Mount your S3 bucket as a local directory, allowing any training code to checkpoint without modification.
+
+#### Installation
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install s3fs
+
+# Amazon Linux
+sudo yum install s3fs-fuse
+```
+
+#### Setup
+
+1. **Create credentials file**
+   ```bash
+   echo AWS_ACCESS_KEY_ID:AWS_SECRET_ACCESS_KEY > ~/.passwd-s3fs
+   chmod 600 ~/.passwd-s3fs
+   ```
+
+2. **Mount the bucket**
+   ```bash
+   mkdir -p /mnt/s3-checkpoints
+   s3fs my-training-checkpoints /mnt/s3-checkpoints \
+       -o passwd_file=~/.passwd-s3fs \
+       -o url=https://s3.us-east-1.amazonaws.com \
+       -o use_path_request_style
+   ```
+
+3. **Verify mount**
+   ```bash
+   df -h /mnt/s3-checkpoints
+   ```
+
+#### Usage in Training Code
+
+```python
+# No code changes needed - save as if it were local storage
+checkpoint_dir = "/mnt/s3-checkpoints/my-experiment"
+
+torch.save({
+    'epoch': epoch,
+    'model_state_dict': model.state_dict(),
+    'optimizer_state_dict': optimizer.state_dict(),
+    'loss': loss,
+}, f"{checkpoint_dir}/checkpoint_epoch_{epoch}.pt")
+```
+
+#### Unmounting
+
+```bash
+fusermount -u /mnt/s3-checkpoints
+```
+
+
+### Manual Sync with AWS CLI
+
+Periodically sync local checkpoints to S3 using AWS CLI or rsync-style commands.
+
+#### Installation
+
+```bash
+pip install awscli
+```
+
+#### Sync After Each Checkpoint
+
+```python
+import subprocess
+import torch
+
+def save_checkpoint_and_sync(model, optimizer, epoch, local_dir, s3_bucket):
+    # Save locally first
+    checkpoint_path = f"{local_dir}/checkpoint_epoch_{epoch}.pt"
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+    }, checkpoint_path)
+
+    # Sync to S3
+    subprocess.run([
+        "aws", "s3", "sync",
+        local_dir,
+        f"s3://{s3_bucket}/checkpoints/",
+        "--exclude", "*",
+        "--include", "*.pt"
+    ], check=True)
+
+# Usage in training loop
+for epoch in range(start_epoch, num_epochs):
+    train_one_epoch(model, dataloader, optimizer)
+    save_checkpoint_and_sync(
+        model, optimizer, epoch,
+        local_dir="/tmp/checkpoints",
+        s3_bucket="my-training-checkpoints"
+    )
+```
+
+
+## Choosing the Right Method
+Selecting the optimal checkpointing strategy involves balancing performance requirements with implementation effort. The following comparison helps you weigh these trade-offs against your specific framework and infrastructure constraints to ensure your training pipeline remains both robust and efficient.
+| Method | Best For | Complexity | Performance |
+|--------|----------|------------|-------------|
+| **S3 Torch Connector** | PyTorch users wanting native integration | Low | High (streaming) |
+| **PyTorch Lightning** | Lightning-based training workflows | Very Low | High |
+| **s3fs-fuse** | Existing code without modifications | Medium | Medium |
+| **AWS CLI Sync** | Simple setups, full control | Low | Medium |
+
+### Recommendations
+
+- **PyTorch Lightning users**: Use the built-in `default_root_dir` with S3 path
+- **Vanilla PyTorch projects**: Use AWS S3 Torch Connector for best performance
+- **Legacy code or multi-framework**: Use s3fs-fuse mount
+- **Simple or infrequent checkpoints**: Use AWS CLI sync

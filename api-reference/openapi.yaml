@@ -1,0 +1,1433 @@
+openapi: 3.1.0
+info:
+  title: AION Authentication Service API
+  description: |
+    Authentication and user management service for the AION platform.
+    
+    This service provides:
+    - JWT and API key validation
+    - User profile management
+    - API key lifecycle management
+    - User invitation and team management
+    
+    ## Authentication
+    
+    Most endpoints require authentication via one of:
+    - **Bearer Token (JWT)**: OAuth2/OIDC tokens from Auth0
+    - **API Key**: Service-generated API keys for machine-to-machine authentication
+    
+    Protected endpoints also require the `x-account-id` header to specify the account context.
+    
+    ## Error Handling
+    
+    All errors follow a consistent format with error codes prefixed by category:
+    - `AUTH_*`: Authentication errors
+    - `USER_*`: User management errors
+    - `ACCT_*`: Account errors
+    - `ROLE_*`: Role/permission errors
+    - `APIKEY_*`: API key errors
+    - `GEN_*`: General errors
+  version: 1.0.0
+  contact:
+    name: AION Intelligence
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:9001
+    description: Local development server (Public API)
+  - url: http://localhost:9002
+    description: Local development server (Private/Health endpoints - internal only)
+  - url: https://api.aion.ai
+    description: Production server (Public API)
+  - url: https://api-internal.aion.ai
+    description: Production server (Private/Health endpoints - internal network only)
+
+tags:
+  - name: Health
+    description: |
+      Service health and status endpoints.
+      
+      **IMPORTANT**: These endpoints are served on a separate private port (9002 by default).
+      They should NOT be exposed publicly and are intended for:
+      - Kubernetes health probes (readiness/liveness)
+      - Internal monitoring systems
+      - Load balancer health checks
+  - name: Authentication
+    description: Authentication and credential validation
+  - name: Webhooks
+    description: Webhook endpoints for external services (Auth0)
+  - name: User Profile
+    description: User profile management
+  - name: Users
+    description: User management and invitations
+  - name: API Keys
+    description: API key lifecycle management
+
+paths:
+  # =============================================================================
+  # HEALTH ENDPOINTS (Private Port 8081)
+  # These endpoints are served on a separate private port for security
+  # =============================================================================
+  
+  /version:
+    get:
+      tags:
+        - Health
+      summary: Service version
+      description: |
+        Returns service name, version, and status.
+        
+        **Port**: 9002 (private)
+      operationId: getVersion
+      servers:
+        - url: http://localhost:9002
+          description: Health server (private port)
+      responses:
+        '200':
+          description: Version information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceInfo'
+
+  /healthz/ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check
+      description: |
+        Kubernetes readiness probe endpoint.
+        
+        **Port**: 9002 (private)
+        
+        Performs comprehensive health checks:
+        - Database connectivity and query execution
+        - External service availability (accounts service, notification service)
+        
+        Returns 200 OK when service can handle traffic, 503 Service Unavailable otherwise.
+      operationId: getReadiness
+      servers:
+        - url: http://localhost:9002
+          description: Health server (private port)
+      responses:
+        '200':
+          description: Service is ready to handle traffic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+              example:
+                status: ready
+                service: authn-svc
+                version: "1.0.0"
+                timestamp: "2024-01-15T10:30:00Z"
+                checks:
+                  database:
+                    status: healthy
+                    latency: "2.5ms"
+                  accounts_service:
+                    status: healthy
+                    latency: "1.2ms"
+                  notification_service:
+                    status: healthy
+                    latency: "0.8ms"
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+              example:
+                status: not_ready
+                service: authn-svc
+                version: "1.0.0"
+                timestamp: "2024-01-15T10:30:00Z"
+                checks:
+                  database:
+                    status: unhealthy
+                    latency: "5000ms"
+                    error: "database connection failed"
+
+  /healthz/live:
+    get:
+      tags:
+        - Health
+      summary: Liveness check
+      description: |
+        Kubernetes liveness probe endpoint.
+        
+        **Port**: 9002 (private)
+        
+        Performs a quick health check to verify the service is alive:
+        - Basic database ping (connection alive)
+        
+        If this fails, Kubernetes should restart the container.
+        This check has a 2-second timeout for fast failure detection.
+      operationId: getLiveness
+      servers:
+        - url: http://localhost:9002
+          description: Health server (private port)
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LivenessResponse'
+              example:
+                status: live
+                service: authn-svc
+                version: "1.0.0"
+                timestamp: "2024-01-15T10:30:00Z"
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LivenessResponse'
+              example:
+                status: unhealthy
+                service: authn-svc
+                version: "1.0.0"
+                timestamp: "2024-01-15T10:30:00Z"
+
+  # =============================================================================
+  # API ENDPOINTS (Public Port 8080)
+  # =============================================================================
+  
+  /api/v1/auth/validate:
+    get:
+      tags:
+        - Authentication
+      summary: Validate credential (Internal/Gateway)
+      description: |
+        **Port**: 9002 (private) - Internal use only, not exposed publicly.
+        
+        Polymorphic credential validation supporting both JWT tokens and API keys.
+        Called by API gateway to validate incoming requests before proxying.
+        
+        For JWT tokens, validates against Auth0 and returns user information.
+        For API keys, validates the key hash and returns associated user/account info.
+        
+        When validating for write operations (POST, PUT, PATCH, DELETE), unverified 
+        users will receive a 403 Forbidden response.
+      operationId: validateCredential
+      servers:
+        - url: http://localhost:9002
+          description: Private server (internal only)
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UpstreamMethod'
+      responses:
+        '200':
+          description: Credential is valid
+          headers:
+            x-user-id:
+              schema:
+                type: string
+              description: User's external ID
+            x-account-id:
+              schema:
+                type: string
+              description: Account's external ID
+            x-user-verified:
+              schema:
+                type: string
+              description: Whether user email is verified ('true' or 'false')
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                success: true
+                data:
+                  user_id: "user-abc123-v1"
+                  account_id: "acct-xyz789-v1"
+                  scopes: ["read", "write"]
+                  auth_type: "jwt"
+                  is_verified: true
+        '400':
+          description: Missing authorization token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: "AUTH_001"
+                  type: "validation"
+                  message: "Authorization token is required"
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: "AUTH_002"
+                  type: "unauthorized"
+                  message: "Invalid or expired authentication token"
+        '403':
+          description: User not verified (for write operations)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error:
+                  code: "AUTH_008"
+                  type: "forbidden"
+                  message: "Email verification required for this action"
+
+  # =============================================================================
+  # WEBHOOK ENDPOINTS (Public Port 8080)
+  # =============================================================================
+
+  /api/v1/webhooks/auth0/signup:
+    post:
+      tags:
+        - Webhooks
+      summary: Auth0 user signup webhook
+      description: |
+        **Port**: 9001 (public) - Called by Auth0 Post-Registration Action.
+        
+        This endpoint is triggered by Auth0 immediately after a user completes registration.
+        It creates the user record in the local database with their Auth0 information.
+        
+        **Authentication**: Secured with Auth0 webhook secret via custom header.
+        
+        **Important**: Always returns 200 OK to prevent Auth0 from retrying, even on errors.
+        This prevents duplicate registration attempts and information leakage.
+      operationId: handleAuth0Signup
+      security:
+        - webhookAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Auth0WebhookRequest'
+            example:
+              event: "user_signup"
+              timestamp: "2024-01-15T10:30:00Z"
+              user:
+                user_id: "auth0|abc123"
+                email: "user@example.com"
+                name: "John Doe"
+                picture: "https://example.com/avatar.jpg"
+                email_verified: false
+      responses:
+        '200':
+          description: Webhook received and processed (or acknowledged with error logged)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+              examples:
+                success:
+                  summary: Successfully processed
+                  value:
+                    received: true
+                    processed_at: "2024-01-15T10:30:01Z"
+                acknowledged:
+                  summary: Acknowledged (error logged)
+                  value:
+                    received: true
+
+  /api/v1/webhooks/auth0/email-verified:
+    post:
+      tags:
+        - Webhooks
+      summary: Auth0 email verification webhook
+      description: |
+        **Port**: 9001 (public) - Called by Auth0 when a user verifies their email.
+        
+        This endpoint is triggered when a user clicks the email verification link.
+        It activates the user account by setting their status to ACTIVE.
+        
+        **Authentication**: Secured with Auth0 webhook secret via custom header.
+        
+        **Important**: Always returns 200 OK to prevent Auth0 from retrying, even on errors.
+      operationId: handleAuth0EmailVerified
+      security:
+        - webhookAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Auth0WebhookRequest'
+            example:
+              event: "email_verified"
+              timestamp: "2024-01-15T10:35:00Z"
+              user:
+                user_id: "auth0|abc123"
+                email: "user@example.com"
+                name: "John Doe"
+                picture: "https://example.com/avatar.jpg"
+                email_verified: true
+      responses:
+        '200':
+          description: Webhook received and processed (or acknowledged with error logged)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+              examples:
+                success:
+                  summary: Successfully processed
+                  value:
+                    received: true
+                    processed_at: "2024-01-15T10:35:01Z"
+                acknowledged:
+                  summary: Acknowledged (error logged)
+                  value:
+                    received: true
+
+  /api/v1/auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user profile
+      description: |
+        Retrieves the authenticated user's profile from Auth0 and local database.
+        
+        This endpoint handles user auto-registration: if the user exists in Auth0 
+        but not in the local database, they will be automatically registered.
+        
+        Returns the user's default (first) account regardless of any `x-account-id` header.
+      operationId: getUserProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          headers:
+            x-user-id:
+              schema:
+                type: string
+              description: User's external ID
+            x-account-id:
+              schema:
+                type: string
+              description: User's default account external ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '500':
+          description: Failed to retrieve profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{account_id}/users/{user_id}/profile:
+    get:
+      tags:
+        - User Profile
+      summary: Get user profile by ID
+      description: |
+        Fetches a user's profile from the database by their external ID.
+        This endpoint does not call Auth0 and is intended to be used behind a gateway.
+        
+        **Authentication**: Requires valid JWT or API key. User can only access their own profile.
+      operationId: getProfile
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          headers:
+            x-user-verified:
+              schema:
+                type: string
+              description: Whether user email is verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          description: Missing user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to fetch user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - User Profile
+      summary: Update user profile
+      description: |
+        Updates a user's profile (currently only name).
+        This endpoint is intended to be used behind a gateway.
+        
+        **Authentication**: Requires valid JWT or API key. User can only update their own profile.
+      operationId: updateProfile
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          description: Invalid request or missing user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to update profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{account_id}/users:
+    get:
+      tags:
+        - Users
+      summary: Get all users in account
+      description: |
+        Retrieves all users associated with the specified account.
+        Requires authentication and account access verification.
+      operationId: getAllUsers
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetAllUsersResponse'
+        '401':
+          description: Unauthorized - missing or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to retrieve users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{account_id}/users/invite:
+    post:
+      tags:
+        - Users
+      summary: Invite user to account
+      description: |
+        Invites a user to join the account by email.
+        
+        **For new users:**
+        - Creates a user record with INVITED status
+        - Assigns team_member role for the account
+        - Sends an invitation email
+        
+        **For existing users:**
+        - Validates they don't belong to another account
+        - Assigns team_member role for the account
+        - No invitation email is sent (they can log in directly)
+      operationId: inviteUser
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteUserRequest'
+      responses:
+        '200':
+          description: Invitation sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User invitation sent successfully"
+        '400':
+          description: Invalid request or user cannot be invited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidEmail:
+                  summary: Invalid email
+                  value:
+                    success: false
+                    error:
+                      code: "USER_004"
+                      type: "validation"
+                      message: "Invalid user information provided"
+                alreadyInvited:
+                  summary: User already invited
+                  value:
+                    success: false
+                    error:
+                      code: "USER_009"
+                      type: "validation"
+                      message: "User has already been invited to this account"
+                inOtherAccount:
+                  summary: User belongs to another account
+                  value:
+                    success: false
+                    error:
+                      code: "USER_010"
+                      type: "validation"
+                      message: "User is part of another account and must leave before joining this one"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to process invitation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/users/{user_id}:
+    put:
+      tags:
+        - Users
+      summary: Update user
+      description: Updates a user's information by their UUID
+      operationId: updateUser
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: User's internal UUID
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/AccountIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "user updated successfully"
+        '400':
+          description: Invalid user ID or request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to update user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/users/{user_id}/block:
+    put:
+      tags:
+        - Users
+      summary: Block user
+      description: Blocks a user, preventing them from accessing the system
+      operationId: blockUser
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: User's internal UUID
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/AccountIdHeader'
+      responses:
+        '200':
+          description: User blocked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockUserResponse'
+        '400':
+          description: Invalid user ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to block user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{account_id}/users/{user_id}/keys:
+    post:
+      tags:
+        - API Keys
+      summary: Create API key
+      description: |
+        Creates a new API key for machine-to-machine authentication.
+        
+        **Important:** The raw key value is only returned once in this response.
+        Store it securely as it cannot be retrieved again.
+        
+        **Authentication**: Requires valid JWT. User can only create keys for themselves.
+      operationId: createAPIKey
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAPIKeyRequest'
+      responses:
+        '201':
+          description: API key created successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CreateAPIKeyResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to create API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - API Keys
+      summary: List API keys
+      description: |
+        Lists all API keys for the current account (without sensitive data).
+        
+        **Authentication**: Requires valid JWT or API key. User can only list keys for their account.
+      operationId: listAPIKeys
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: API keys retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/APIKeyListResponse'
+        '400':
+          description: Invalid account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to list API keys
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{account_id}/users/{user_id}/keys/{id}:
+    delete:
+      tags:
+        - API Keys
+      summary: Revoke API key
+      description: |
+        Revokes an API key, making it permanently unusable.
+        
+        **Authentication**: Requires valid JWT or API key. User can only revoke keys from their account.
+      operationId: revokeAPIKey
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/UserId'
+        - name: id
+          in: path
+          required: true
+          description: API key's external ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: API key revoked successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message:
+                            type: string
+                            example: "API key revoked successfully"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not authorized to access this API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: API key not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to revoke API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from Auth0
+
+    apiKeyAuth:
+      type: http
+      scheme: bearer
+      description: API key (prefixed with configured prefix, e.g., 'ai_prod.')
+
+    webhookAuth:
+      type: apiKey
+      in: header
+      name: x-webhook-secret
+      description: |
+        Auth0 webhook secret for authenticating webhook requests.
+        For local development only, use 'dev-bypass' to skip authentication.
+
+  parameters:
+    AccountId:
+      name: account_id
+      in: path
+      required: true
+      description: |
+        Account's external ID (format: acct-xxx-v1)
+      schema:
+        type: string
+        example: "acct-xyz789-v1"
+
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      description: |
+        User's external ID (format: user-xxx-v1)
+      schema:
+        type: string
+        example: "user-abc123-v1"
+
+    AccountIdHeader:
+      name: x-account-id
+      in: header
+      required: true
+      description: Account external ID for context
+      schema:
+        type: string
+        example: "acct-xyz789-v1"
+
+    UpstreamMethod:
+      name: x-upstream-method
+      in: header
+      required: false
+      description: |
+        Original HTTP method from upstream request (used by gateway).
+        If method is POST/PUT/PATCH/DELETE and user is unverified, request is rejected.
+      schema:
+        type: string
+        enum: [GET, POST, PUT, PATCH, DELETE]
+
+  schemas:
+    ServiceInfo:
+      type: object
+      properties:
+        service:
+          type: string
+          example: "authn-svc"
+        version:
+          type: string
+          example: "1.0.0"
+        status:
+          type: string
+          example: "running"
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ready, live]
+
+    LivenessResponse:
+      type: object
+      description: Response from the liveness probe endpoint
+      properties:
+        status:
+          type: string
+          enum: [live, unhealthy]
+          description: Current liveness status
+        service:
+          type: string
+          example: "authn-svc"
+        version:
+          type: string
+          example: "1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC timestamp of the check
+
+    ReadinessResponse:
+      type: object
+      description: Response from the readiness probe endpoint
+      properties:
+        status:
+          type: string
+          enum: [ready, not_ready]
+          description: Current readiness status
+        service:
+          type: string
+          example: "authn-svc"
+        version:
+          type: string
+          example: "1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC timestamp of the check
+        checks:
+          type: object
+          description: Individual health check results
+          additionalProperties:
+            $ref: '#/components/schemas/HealthCheckDetail'
+
+    HealthCheckDetail:
+      type: object
+      description: Details of an individual health check
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        latency:
+          type: string
+          description: Time taken for the check
+          example: "2.5ms"
+        error:
+          type: string
+          description: Error message if check failed
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          $ref: '#/components/schemas/AppError'
+
+    AppError:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Error code (e.g., AUTH_001, USER_002)
+          example: "AUTH_002"
+        type:
+          type: string
+          enum: [validation, unauthorized, forbidden, not_found, conflict, internal]
+          example: "unauthorized"
+        message:
+          type: string
+          description: User-friendly error message
+          example: "Invalid or expired authentication token"
+        details:
+          type: string
+          description: Additional error details (optional)
+
+    UnifiedValidationResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: User's external ID
+          example: "user-abc123-v1"
+        account_id:
+          type: string
+          description: Account's external ID
+          example: "acct-xyz789-v1"
+        scopes:
+          type: array
+          items:
+            type: string
+          description: Permission scopes (for API keys)
+          example: ["read", "write"]
+        auth_type:
+          type: string
+          enum: [jwt, api_key]
+          description: Type of authentication used
+          example: "jwt"
+        is_verified:
+          type: boolean
+          description: Whether user's email is verified
+          example: true
+
+    UserStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE, SUSPENDED, WAITLISTED, INVITED, PENDING]
+      description: User account status
+
+    AuthenticationType:
+      type: string
+      enum: [google-oauth2, auth0, github, unknown]
+      description: Type of authentication used
+
+    AuthenticationPartner:
+      type: string
+      enum: [AUTH0]
+      description: Authentication provider
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          description: User's external ID
+          example: "user-abc123-v1"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          example: "John Doe"
+        profile_pic_url:
+          type: string
+          format: uri
+          example: "https://example.com/avatar.jpg"
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        is_verified:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserProfileResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/UserProfile'
+        account_id:
+          type: string
+          description: Account external ID
+          example: "acct-xyz789-v1"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        external_id:
+          type: string
+        name:
+          type: string
+        profile_pic_url:
+          type: string
+          format: uri
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        is_verified:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+        authentication_type:
+          $ref: '#/components/schemas/AuthenticationType'
+        authentication_partner:
+          $ref: '#/components/schemas/AuthenticationPartner'
+        authentication_partner_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserResponseDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          description: User's external ID
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        profile_pic_url:
+          type: string
+          format: uri
+        status:
+          $ref: '#/components/schemas/UserStatus'
+        is_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        authentication_type:
+          $ref: '#/components/schemas/AuthenticationType'
+        authentication_partner:
+          $ref: '#/components/schemas/AuthenticationPartner'
+        authentication_partner_id:
+          type: string
+
+    GetAllUsersResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponseDTO'
+        total:
+          type: integer
+          description: Total number of users
+          example: 5
+        message:
+          type: string
+          example: "Users retrieved successfully"
+
+    UpdateProfileRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: User's display name
+          example: "John Doe"
+
+    InviteUserRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address of the user to invite
+          example: "newuser@example.com"
+
+    BlockUserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "User blocked successfully"
+        user_id:
+          type: string
+          format: uuid
+
+    CreateAPIKeyRequest:
+      type: object
+      required:
+        - key_name
+      properties:
+        key_name:
+          type: string
+          description: Display name for the API key
+          example: "Production API Key"
+        scopes:
+          type: array
+          items:
+            type: string
+          description: Permission scopes for the key
+          example: ["read", "write"]
+
+    CreateAPIKeyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: API key's external ID
+          example: "apikey-abc123-v1"
+        key_name:
+          type: string
+          example: "Production API Key"
+        raw_key:
+          type: string
+          description: |
+            The actual API key value. **Only returned once at creation time.**
+            Store this securely - it cannot be retrieved again.
+          example: "aion_sk_live_abc123xyz789..."
+        scopes:
+          type: array
+          items:
+            type: string
+          example: ["read", "write"]
+        created_at:
+          type: string
+          format: date-time
+
+    APIKeyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: API key's external ID
+        key_name:
+          type: string
+        masked_key:
+          type: string
+          description: Masked version of the key for display
+          example: "aion_sk_...xyz789"
+        scopes:
+          type: array
+          items:
+            type: string
+        is_active:
+          type: boolean
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    APIKeyListResponse:
+      type: object
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/APIKeyResponse'
+
+    WebhookResponse:
+      type: object
+      description: |
+        Standard webhook acknowledgment response.
+        Always returns success to prevent webhook retries from external services.
+      properties:
+        received:
+          type: boolean
+          description: Whether the webhook was received
+          example: true
+        processed_at:
+          type: string
+          format: date-time
+          description: UTC timestamp when webhook was processed (optional)
+          example: "2024-01-15T10:30:01Z"
+
+    Auth0WebhookRequest:
+      type: object
+      description: Generic webhook payload from Auth0
+      required:
+        - event
+        - user
+      properties:
+        event:
+          type: string
+          description: Event type (e.g., "user_signup", "email_verified")
+          example: "user_signup"
+        user:
+          $ref: '#/components/schemas/Auth0WebhookUser'
+        timestamp:
+          type: string
+          format: date-time
+          description: When the event occurred in Auth0
+          example: "2024-01-15T10:30:00Z"
+
+    Auth0WebhookUser:
+      type: object
+      description: User data in Auth0 webhook payload
+      required:
+        - user_id
+        - email
+      properties:
+        user_id:
+          type: string
+          description: Auth0 user ID (sub claim, e.g., "auth0|abc123")
+          example: "auth0|abc123"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        name:
+          type: string
+          description: User's display name
+          example: "John Doe"
+        picture:
+          type: string
+          format: uri
+          description: URL to user's profile picture
+          example: "https://example.com/avatar.jpg"
+        email_verified:
+          type: boolean
+          description: Whether the user's email is verified
+          example: false
+
+

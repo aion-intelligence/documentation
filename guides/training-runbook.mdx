@@ -1,0 +1,221 @@
+---
+title: "Multi-GPU LLM Training on a Single H100 Node"
+description: "A guide to train LLMs using all 8 GPUs on an H100 node, utilizing PyTorch Lightning for distributed computing and Amazon S3 for fault-tolerant checkpoint storage and recovery."
+---
+
+This guide demonstrates how to train a large language model from scratch across all 8 GPUs on an H100 node with S3 checkpointing for fault tolerance.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Training Job with S3 Checkpointing](#training-job-with-s3-checkpointing)
+- [Monitoring with Observability Dashboard](#monitoring-with-observability-dashboard)
+- [Recovering from Failures](#recovering-from-failures)
+
+
+## Overview
+
+This playbook covers:
+
+- Training an LLM from scratch across all 8 GPUs on an H100 node using DDP
+- Configuring S3 checkpointing for durability
+- Monitoring GPU utilization via the Observability dashboard
+- Recovering training from a checkpoint after interruption
+
+
+
+## Prerequisites
+
+- Access to an H100 node with 8 GPUs
+- AWS credentials configured for S3 access
+- S3 bucket created for checkpoints (see [Checkpointing Guide](/guides/checkpoint-s3))
+
+### Install Dependencies
+
+```bash
+pip install torch transformers datasets lightning s3fs
+```
+
+### Verify GPU Availability
+
+```bash
+# Check all 8 GPUs are visible
+nvidia-smi
+
+# Expected output: 8x NVIDIA H100 GPUs listed
+```
+
+
+## Training Job with S3 Checkpointing
+
+This example trains a GPT-2 style model from scratch using all 8 GPUs with PyTorch Lightning and saves checkpoints directly to S3.
+
+Create a new file named `llm_training.py` on your node and paste the following code:
+```python
+import torch
+import lightning as L
+from torch.utils.data import DataLoader
+from datasets import load_dataset
+from transformers import (
+    GPT2Config,
+    GPT2LMHeadModel,
+    GPT2Tokenizer,
+    DataCollatorForLanguageModeling,
+)
+
+# Configuration
+MAX_LENGTH = 1024
+BATCH_SIZE = 8
+LEARNING_RATE = 5e-5
+NUM_EPOCHS = 3
+
+# S3 checkpoint path
+S3_CHECKPOINT_DIR = "s3://my-training-checkpoints/gpt2-pretrain/"
+
+
+class GPT2PretrainingModule(L.LightningModule):
+    def __init__(self):
+        super().__init__()
+        config = GPT2Config(
+            vocab_size=50257,
+            n_positions=1024,
+            n_embd=768,
+            n_layer=12,
+            n_head=12,
+        )
+        self.model = GPT2LMHeadModel(config)
+
+    def training_step(self, batch, batch_idx):
+        outputs = self.model(**batch)
+        loss = outputs.loss
+        self.log("train_loss", loss, prog_bar=True, sync_dist=True)
+        return loss
+
+    def configure_optimizers(self):
+        return torch.optim.AdamW(self.parameters(), lr=LEARNING_RATE)
+
+
+def create_dataloader():
+    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+    tokenizer.pad_token = tokenizer.eos_token
+
+    dataset = load_dataset("wikitext", "wikitext-103-v1", split="train")
+
+    def tokenize_function(examples):
+        return tokenizer(
+            examples["text"],
+            truncation=True,
+            max_length=MAX_LENGTH,
+            padding="max_length",
+        )
+
+    tokenized_dataset = dataset.map(
+        tokenize_function,
+        batched=True,
+        remove_columns=["text"],
+        num_proc=4,
+    )
+
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokenizer,
+        mlm=False,
+    )
+
+    return DataLoader(
+        tokenized_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        collate_fn=data_collator,
+        num_workers=4,
+    )
+
+
+if __name__ == "__main__":
+    model = GPT2PretrainingModule()
+    train_loader = create_dataloader()
+
+    trainer = L.Trainer(
+        max_epochs=NUM_EPOCHS,
+        accelerator="gpu",
+        devices=8,
+        strategy="ddp",
+        precision="bf16-mixed",
+        # S3 checkpointing - Lightning writes directly to S3 via fsspec
+        default_root_dir=S3_CHECKPOINT_DIR,
+        enable_checkpointing=True,
+    )
+
+    trainer.fit(model, train_loader)
+```
+
+### Run the Training Job
+Execute the training script within your configured environment.
+It is critical to export your AWS credentials as environment variables first, ensuring the script can authenticate and stream data to S3 immediately upon startup.
+```bash
+# Set AWS credentials
+export AWS_ACCESS_KEY_ID=<your-access-key>
+export AWS_SECRET_ACCESS_KEY=<your-secret-key>
+export AWS_DEFAULT_REGION=us-east-1
+
+# Run training
+
+python llm_training.py
+```
+
+### Verify Checkpoints in S3
+Confirm that model artifacts are successfully persisting to cloud storage. Use the AWS CLI to list the contents of your bucket and validate that checkpoints are being generated at the expected intervals.
+```bash
+aws s3 ls s3://my-training-checkpoints/gpt2-pretrain/ --recursive
+
+# Example output:
+# lightning_logs/version_0/checkpoints/epoch=0-step=1000.ckpt
+# lightning_logs/version_0/checkpoints/epoch=1-step=2000.ckpt
+# lightning_logs/version_0/checkpoints/last.ckpt
+```
+
+
+## Monitoring with Observability Dashboard
+While training is running, you can monitor GPU utilization through the Observability dashboard.
+
+### Steps
+
+1. Navigate to **Observability** in the left sidebar
+2. Select your cluster and node
+3. Set time range to `6h` or `12h`
+
+### What to Look For
+
+| Metric | Expected Value (Healthy Training) |
+|--------|----------------------------------|
+| **GPU Utilization** | 80-100% across all 8 GPUs |
+| **GPU Power** | High (~600-700W per H100) |
+| **GPU Temperature** | 60-80°C |
+| **GPU SM Clocks** | Stable at boost frequency |
+| **GPU DRAM** | Evenly distributed across GPUs (DDP replicates model) |
+| **CPU Usage** | Moderate (data loading and tokenization) |
+
+### Dashboard During Training
+
+{/* Placeholder for screenshot:
+- GPU Utilisation showing all 8 GPUs at high utilization during training
+- GPU Temperature stable across GPUs
+- GPU DRAM showing even distribution with DDP */}
+
+## Recovering from Failures
+
+If training is interrupted, resume from the last S3 checkpoint.
+
+### Resume from Last Checkpoint
+
+With PyTorch Lightning, resuming is straightforward. Just add the `ckpt_path` parameter to `trainer.fit()`:
+
+```python
+# Resume from the last checkpoint in S3
+trainer.fit(
+    model,
+    train_loader,
+    ckpt_path=f"{S3_CHECKPOINT_DIR}lightning_logs/version_0/checkpoints/last.ckpt",
+)
+```
+

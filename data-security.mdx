@@ -1,0 +1,43 @@
+---
+title: "Privacy and Security"
+---
+
+## Data locality and residency
+
+Customer data (including content and associated metadata) is stored and processed within the region(s) selected for the tenant/workspace.
+The service is designed to avoid moving customer data outside the selected region unless explicitly configured or required for operations.
+
+Backups and disaster recovery are configured to meet availability objectives.
+
+## Encryption, key management, and rotation
+
+Data in transit is protected using TLS. Data at rest is encrypted using envelope encryption, where data keys are protected by a key-encryption key managed by the underlying cloud or infrastructure provider.
+
+Key management is handled through the provider’s key-management service (KMS or equivalent). The provider maintains secure key storage and rotates underlying key material according to its standard practices. 
+Where customer-managed keys are supported, rotation frequency and ownership can be configured based on customer policy.
+
+
+## Authentication controls and 2FA status
+
+Administrative access is governed through RBAC and least privilege, with periodic access reviews and centralized logging of administrative activity.
+
+As of January 2026, two-factor authentication (2FA) is not enabled. In this state, account security relies on single-factor credentials, so access is tightly scoped and monitored and compensating controls are applied (for example, strong password policy and alerting for anomalous sign-in activity). 
+A remediation plan to enable and enforce 2FA is maintained with an owner and target timeline.
+
+## Compliance and assurance
+
+The security program is designed to align with commonly requested frameworks (for example, SOC 2, ISO 27001, and privacy requirements such as GDPR) based on the organization’s obligations. 
+
+
+## Production access governance
+
+Engineers do not have direct access to production systems. Production operations are executed through controlled automation (CI/CD and infrastructure-as-code) with peer review, approvals, and audit logging.
+
+Operational access to production, where required, is restricted to a small set of platform or operations roles, granted on a least-privilege basis, time-bounded where supported, and continuously logged.
+
+## No break-glass access
+
+The service does not maintain break-glass accounts or an emergency bypass mechanism that would allow personnel to circumvent standard controls.
+Urgent response is coordinated through documented incident procedures and automation, and elevated actions follow standard approval and audit expectations.
+
+> `Contact`: For security and privacy questions, please contact: [support@aion.xyz].
