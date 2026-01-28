@@ -21,7 +21,7 @@ Where customer-managed keys are supported, rotation frequency and ownership can 
 
 Administrative access is governed through RBAC and least privilege, with periodic access reviews and centralized logging of administrative activity.
 
-Two-factor authentication (2FA) is currently not enabled. In this state, account security relies on single-factor credentials, so access is tightly scoped and monitored and compensating controls are applied (for example, strong password policy and alerting for anomalous sign-in activity). 
+As of January 2026, two-factor authentication (2FA) is not enabled. In this state, account security relies on single-factor credentials, so access is tightly scoped and monitored and compensating controls are applied (for example, strong password policy and alerting for anomalous sign-in activity). 
 A remediation plan to enable and enforce 2FA is maintained with an owner and target timeline.
 
 ## Compliance and assurance
@@ -33,7 +33,7 @@ The security program is designed to align with commonly requested frameworks (fo
 
 Engineers do not have direct access to production systems. Production operations are executed through controlled automation (CI/CD and infrastructure-as-code) with peer review, approvals, and audit logging.
 
-Operational access to production, where required, is restricted to a small set of platform or operations roles, granted on a least-privilege basis, time bounded where supported, and continuously logged.
+Operational access to production, where required, is restricted to a small set of platform or operations roles, granted on a least-privilege basis, time-bounded where supported, and continuously logged.
 
 ## No break-glass access
 

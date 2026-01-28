@@ -18,7 +18,7 @@ This guide demonstrates how to train a large language model from scratch across 
 
 This playbook covers:
 
-- Training an LLM from scratch across all 8 GPUs on an H100 node using FSDP
+- Training an LLM from scratch across all 8 GPUs on an H100 node using DDP
 - Configuring S3 checkpointing for durability
 - Monitoring GPU utilization via the Observability dashboard
 - Recovering training from a checkpoint after interruption
@@ -160,7 +160,7 @@ export AWS_DEFAULT_REGION=us-east-1
 
 # Run training
 
-python train_with_s3.py
+python llm_training.py
 ```
 
 ### Verify Checkpoints in S3
@@ -188,11 +188,11 @@ While training is running, you can monitor GPU utilization through the Observabi
 
 | Metric | Expected Value (Healthy Training) |
 |--------|----------------------------------|
-| **GPU Utilisation** | 80-100% across all 8 GPUs |
+| **GPU Utilization** | 80-100% across all 8 GPUs |
 | **GPU Power** | High (~600-700W per H100) |
 | **GPU Temperature** | 60-80°C |
 | **GPU SM Clocks** | Stable at boost frequency |
-| **GPU DRAM** | Evenly distributed across GPUs (FSDP shards model) |
+| **GPU DRAM** | Evenly distributed across GPUs (DDP replicates model) |
 | **CPU Usage** | Moderate (data loading and tokenization) |
 
 ### Dashboard During Training
@@ -200,7 +200,7 @@ While training is running, you can monitor GPU utilization through the Observabi
 {/* Placeholder for screenshot:
 - GPU Utilisation showing all 8 GPUs at high utilization during training
 - GPU Temperature stable across GPUs
-- GPU DRAM showing even distribution with FSDP */}
+- GPU DRAM showing even distribution with DDP */}
 
 ## Recovering from Failures
 
