@@ -137,6 +137,9 @@ Burn tests stress-test GPUs to verify stability under sustained high load. This 
    - **FAIL**: SM Clocks dropping (throttling), temperature exceeding limits, or computation errors in terminal
 
 ### What to Capture
+<Frame>
+  <img src="/images/guides/gpu-cluster-observability/dashboard.png" alt="Observability dashboard GPU metrics" />
+</Frame>
 
 {/* Placeholders for screenshots:
 - Burn test terminal output showing no errors
@@ -189,15 +192,4 @@ NCC (NCCL - NVIDIA Collective Communications Library) tests verify GPU-to-GPU co
    | NVLink 4.0 | ~900 GB/s |
    | PCIe 4.0 | ~25 GB/s |
 
-### What to Capture
 
-{/* Placholders for screenshots:
-- NCC test terminal output showing bandwidth results
-- Observability dashboard GPU metrics during the test */}
-
-
-## Additional Resources
-
-- [NVIDIA GPU Burn](https://github.com/wilicc/gpu-burn)
-- [NCCL Tests](https://github.com/NVIDIA/nccl-tests)
-- [NVIDIA DCGM Documentation](https://docs.nvidia.com/datacenter/dcgm/latest/)
