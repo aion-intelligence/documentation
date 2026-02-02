@@ -57,7 +57,6 @@
       },
       {
         "tab": "API reference",
-        
         "groups": [
           {
             "group": "Health",
@@ -67,6 +66,29 @@
               "api-reference/healthz/ready/get",
               "api-reference/healthz/live/get"
             ]
+          },
+          {
+            "group": "IAM",
+            "pages": [
+              "api-reference/api/v1/authorize/post",
+              "api-reference/api/v1/accounts/roles/get",
+              "api-reference/api/v1/accounts/roles/types/get",
+              "api-reference/api/v1/accounts/roles/users/get",
+              "api-reference/api/v1/accounts/roles/assignments/post",
+              "api-reference/api/v1/accounts/roles/assignments/put",
+              "api-reference/api/v1/accounts/roles/assignments/delete"
+                      ]
+          },
+          {
+            "group": "Firewall",
+            "pages": [
+              "api-reference/api/v1/accounts/projects/security-groups/get",
+              "api-reference/api/v1/accounts/projects/security-groups/post",
+              "api-reference/api/v1/accounts/projects/security-groups/id/get",
+              "api-reference/api/v1/accounts/projects/security-groups/id/put",
+              "api-reference/api/v1/accounts/projects/security-groups/id/delete"
+              
+                      ]
           },
           {
             "group": "Authentication",

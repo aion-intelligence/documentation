@@ -1,0 +1,835 @@
+openapi: 3.1.0
+info:
+  title: AuthZ Service API
+  description: Authorization service for managing roles and user permissions
+  version: 1.1.0
+
+servers:
+  - url: https://api.aion.xyz
+    description: Production server
+  - url: https://api.dev.internal.aion.xyz
+    description: Staging server
+
+paths:
+  /api/v1/authorize/{proxy+}:
+    post:
+      summary: Check authorization for an action
+      description: |
+        Evaluate whether a user is authorized to perform a specific action on a resource.
+        The proxy path represents the original request path being authorized.
+      operationId: authorize
+      tags:
+        - Authorization
+      parameters:
+        - name: proxy+
+          in: path
+          required: true
+          description: The original request path being authorized (e.g., "projects/my-project/instances")
+          schema:
+            type: string
+            example: "projects/my-project/instances"
+        - name: X-User-ID
+          in: header
+          required: true
+          description: The user identifier making the request
+          schema:
+            type: string
+            example: "john.doe"
+        - name: X-Account-ID
+          in: header
+          required: true
+          description: The account identifier for the request context
+          schema:
+            type: string
+            example: "my-company-account"
+        - name: X-Action
+          in: header
+          required: true
+          description: The action being performed (e.g., "account:user:read", "project:instance:create")
+          schema:
+            type: string
+            example: "project:instance:create"
+      responses:
+        '200':
+          description: Authorization allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationResponse'
+              example:
+                allowed: true
+                reason: "User has project_admin role"
+        '401':
+          description: Authorization denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationResponse'
+              example:
+                allowed: false
+                reason: "User does not have permission to perform this action"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/accounts/{accountId}/roles:
+    get:
+      summary: Get all roles for an account
+      description: Retrieve all roles available within a specific account, including both system roles and custom account-specific roles
+      operationId: listRoles
+      tags:
+        - Roles
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The account identifier (external account ID)
+          schema:
+            type: string
+            example: "my-company-account"
+        - name: scope
+          in: query
+          required: false
+          description: Filter roles by scope
+          schema:
+            $ref: '#/components/schemas/RoleScope'
+        - name: status
+          in: query
+          required: false
+          description: Filter roles by status
+          schema:
+            $ref: '#/components/schemas/RoleStatus'
+        - name: projectId
+          in: query
+          required: false
+          description: Filter roles by project ID (for project-scoped roles)
+          schema:
+            type: string
+            example: "project-alpha"
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination (default 1)
+          schema:
+            type: integer
+            default: 1
+            example: 1
+        - name: pageSize
+          in: query
+          required: false
+          description: Number of items per page (default 20, max 100)
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+            example: 20
+      responses:
+        '200':
+          description: Successfully retrieved roles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Role'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{accountId}/roles/{roleId}:
+    get:
+      summary: Get a specific role
+      description: Retrieve details of a specific role by its identifier
+      operationId: getRole
+      tags:
+        - Roles
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The account identifier (external account ID)
+          schema:
+            type: string
+            example: "my-company-account"
+        - name: roleId
+          in: path
+          required: true
+          description: The role identifier (external role ID)
+          schema:
+            type: string
+            example: "account_admin"
+      responses:
+        '200':
+          description: Successfully retrieved role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{accountId}/roles/users/{userId}:
+    get:
+      summary: Get all roles assigned to a user
+      description: Retrieve all roles assigned to a specific user within an account, including account-level and project-level role assignments
+      operationId: getUserRoles
+      tags:
+        - User Roles
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The account identifier (external account ID)
+          schema:
+            type: string
+            example: "my-company-account"
+        - name: userId
+          in: path
+          required: true
+          description: The user identifier (external user ID)
+          schema:
+            type: string
+            example: "john.doe"
+        - name: status
+          in: query
+          required: false
+          description: Filter role assignments by status
+          schema:
+            $ref: '#/components/schemas/AssignmentStatus'
+        - name: scope
+          in: query
+          required: false
+          description: Filter role assignments by role scope
+          schema:
+            $ref: '#/components/schemas/RoleScope'
+        - name: projectId
+          in: query
+          required: false
+          description: Filter role assignments by project ID
+          schema:
+            type: string
+            example: "project-alpha"
+      responses:
+        '200':
+          description: Successfully retrieved user role assignments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserRoleAssignment'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/accounts/{accountId}/roles/assignments:
+    post:
+      summary: Assign a role to a user
+      description: Assign a specific role to a user within an account or project
+      operationId: createRoleAssignment
+      tags:
+        - Role Assignments
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The account identifier (external account ID)
+          schema:
+            type: string
+            example: "my-company-account"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleAssignmentRequest'
+      responses:
+        '201':
+          description: Role successfully assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleAssignmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Role assignment already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{accountId}/roles/{roleId}/assignments/{assigneeId}:
+    put:
+      summary: Update role assignment for a user
+      description: |
+        Update an existing role assignment for a user. This replaces the current role with a new role.
+        
+        **Restrictions:**
+        - Organization admins cannot demote themselves (change their own role from account_admin to a non-admin role)
+        - The last organization admin in an account cannot be demoted
+      operationId: updateRoleAssignment
+      tags:
+        - Role Assignments
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The account identifier (external account ID)
+          schema:
+            type: string
+            example: "my-company-account"
+        - name: roleId
+          in: path
+          required: true
+          description: The new role identifier to assign
+          schema:
+            type: string
+            example: "project_admin"
+        - name: assigneeId
+          in: path
+          required: true
+          description: The assignee identifier (external user ID)
+          schema:
+            type: string
+            example: "john.doe"
+        - name: projectId
+          in: query
+          required: false
+          description: Project identifier for project-scoped role assignments
+          schema:
+            type: string
+            example: "project-alpha"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleUpdateRequest'
+      responses:
+        '200':
+          description: Role assignment successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleAssignmentResponse'
+        '400':
+          description: Bad request - validation failed or org admin restriction violated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validation_error:
+                  summary: Validation Error
+                  value:
+                    error:
+                      code: "BAD_REQUEST"
+                      message: "Invalid request parameters"
+                      details: ["projectId is required for PROJECT scoped roles"]
+                self_demotion:
+                  summary: Self Demotion Blocked
+                  value:
+                    error:
+                      code: "BAD_REQUEST"
+                      message: "Cannot demote yourself"
+                      details: ["Organization admins cannot remove their own admin role"]
+                last_admin:
+                  summary: Last Admin Protection
+                  value:
+                    error:
+                      code: "BAD_REQUEST"
+                      message: "Cannot demote last admin"
+                      details: ["Cannot demote the last organization admin in the account"]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Revoke role assignment from a user
+      description: |
+        Remove a specific role assignment from a user.
+        
+        **Restrictions:**
+        - Organization admins cannot remove their own admin role
+        - The last organization admin in an account cannot be removed
+      operationId: deleteRoleAssignment
+      tags:
+        - Role Assignments
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The account identifier (external account ID)
+          schema:
+            type: string
+            example: "my-company-account"
+        - name: roleId
+          in: path
+          required: true
+          description: The role identifier to revoke
+          schema:
+            type: string
+            example: "project_reader"
+        - name: assigneeId
+          in: path
+          required: true
+          description: The assignee identifier (external user ID)
+          schema:
+            type: string
+            example: "john.doe"
+        - name: assigneeType
+          in: query
+          required: false
+          description: The type of assignee (defaults to USER)
+          schema:
+            $ref: '#/components/schemas/AssigneeType'
+            default: USER
+        - name: projectId
+          in: query
+          required: false
+          description: Project identifier for project-scoped role assignments
+          schema:
+            type: string
+            example: "project-alpha"
+      responses:
+        '200':
+          description: Role assignment successfully revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Assignment deleted successfully"
+        '400':
+          description: Bad request - validation failed or org admin restriction violated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validation_error:
+                  summary: Validation Error
+                  value:
+                    error:
+                      code: "BAD_REQUEST"
+                      message: "Invalid request parameters"
+                      details: ["projectId is required for PROJECT scoped roles"]
+                self_removal:
+                  summary: Self Removal Blocked
+                  value:
+                    error:
+                      code: "BAD_REQUEST"
+                      message: "Cannot remove yourself"
+                      details: ["Organization admins cannot remove their own admin role"]
+                last_admin:
+                  summary: Last Admin Protection
+                  value:
+                    error:
+                      code: "BAD_REQUEST"
+                      message: "Cannot remove last admin"
+                      details: ["Cannot remove the last organization admin from the account"]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  schemas:
+    AuthorizationResponse:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+          description: Whether the action is authorized
+          example: true
+        reason:
+          type: string
+          description: Explanation for the authorization decision
+          example: "User has account_admin role"
+      required:
+        - allowed
+
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          maxLength: 50
+          description: Role identifier (external_id from database)
+          example: "account_admin"
+        accountId:
+          type: string
+          description: Account identifier (external account ID, null for system roles)
+          example: "my-company-account"
+        projectId:
+          type: string
+          description: Project identifier (external project ID, for project-scoped custom roles)
+          example: "project-alpha"
+        name:
+          type: string
+          description: Role name
+          example: "account_admin"
+        description:
+          type: string
+          maxLength: 500
+          description: Role description
+          example: "Full administrative access to the account"
+        scope:
+          $ref: '#/components/schemas/RoleScope'
+        status:
+          $ref: '#/components/schemas/RoleStatus'
+        isCustom:
+          type: boolean
+          description: Whether this is a custom role (false for system roles like account_admin, project_admin, project_reader)
+        createdBy:
+          type: string
+          description: Creator identifier (external user ID)
+          example: "admin.user"
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the role was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the role was last updated
+      required:
+        - id
+        - name
+        - scope
+        - status
+        - isCustom
+        - createdAt
+        - updatedAt
+
+    UserRoleAssignment:
+      type: object
+      properties:
+        roleId:
+          type: string
+          description: Role identifier
+          example: "project_admin"
+        projectId:
+          type: string
+          description: Project identifier (external project ID, for project-scoped assignments)
+          example: "project-alpha"
+        status:
+          $ref: '#/components/schemas/AssignmentStatus'
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the assignment was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the assignment was last updated
+      required:
+        - roleId
+        - status
+        - createdAt
+        - updatedAt
+
+    UserRoleAssignmentWithAccount:
+      type: object
+      properties:
+        accountId:
+          type: string
+          description: Account identifier (external account ID)
+          example: "my-company-account"
+        accountName:
+          type: string
+          description: Human-readable account name
+          example: "My Company"
+        roleId:
+          type: string
+          description: Role identifier
+          example: "project_admin"
+        roleName:
+          type: string
+          description: Human-readable role name
+          example: "Project Admin"
+        roleScope:
+          $ref: '#/components/schemas/RoleScope'
+        projectId:
+          type: string
+          description: Project identifier (external project ID, if role is project-scoped)
+          example: "project-alpha"
+        projectName:
+          type: string
+          description: Human-readable project name (if role is project-scoped)
+          example: "Project Alpha"
+        status:
+          $ref: '#/components/schemas/AssignmentStatus'
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when the assignment was created
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the assignment was last updated
+      required:
+        - accountId
+        - roleId
+        - roleName
+        - roleScope
+        - status
+        - createdAt
+        - updatedAt
+
+    RoleAssignmentRequest:
+      type: object
+      properties:
+        assigneeId:
+          type: string
+          description: Assignee identifier (external user/group ID)
+          example: "john.doe"
+        assigneeType:
+          $ref: '#/components/schemas/AssigneeType'
+        roleId:
+          type: string
+          description: Role identifier to assign
+          example: "project_admin"
+        projectId:
+          type: string
+          description: Project identifier (required for PROJECT scoped roles, must be empty for ACCOUNT scoped roles)
+          example: "project-alpha"
+      required:
+        - assigneeId
+        - assigneeType
+        - roleId
+
+    RoleUpdateRequest:
+      type: object
+      properties:
+        assigneeType:
+          $ref: '#/components/schemas/AssigneeType'
+        roleId:
+          type: string
+          description: The current role identifier being replaced
+          example: "project_reader"
+        projectId:
+          type: string
+          description: Project identifier (for project-scoped roles)
+          example: "project-beta"
+        status:
+          $ref: '#/components/schemas/AssignmentStatus'
+      required:
+        - assigneeType
+        - roleId
+
+    RoleAssignmentResponse:
+      type: object
+      properties:
+        assigneeId:
+          type: string
+          description: Assignee identifier (external user/group ID)
+          example: "jane.smith"
+        assigneeType:
+          $ref: '#/components/schemas/AssigneeType'
+        roleId:
+          type: string
+          description: Role identifier
+          example: "account_admin"
+        status:
+          $ref: '#/components/schemas/AssignmentStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - assigneeId
+        - assigneeType
+        - roleId
+        - status
+        - createdAt
+        - updatedAt
+
+    RoleScope:
+      type: string
+      enum:
+        - ACCOUNT
+        - PROJECT
+        - RESOURCE
+      description: |
+        The scope of the role:
+        - ACCOUNT: Role applies at the account level (e.g., account_admin)
+        - PROJECT: Role applies at the project level (e.g., project_admin, project_reader)
+        - RESOURCE: Role applies to specific resources
+
+    RoleStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+      description: The status of the role
+
+    AssigneeType:
+      type: string
+      enum:
+        - USER
+        - IAMGROUP
+      description: The type of assignee
+
+    AssignmentStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+      description: The status of the role assignment
+
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+          example: 42
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        pageSize:
+          type: integer
+          description: Number of items per page
+          example: 20
+        totalPages:
+          type: integer
+          description: Total number of pages
+          example: 3
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+              example: "BAD_REQUEST"
+            message:
+              type: string
+              description: Error message
+              example: "Invalid request parameters"
+            details:
+              type: array
+              items:
+                type: string
+              description: Additional error details
+              example: ["projectId is required for PROJECT scoped roles"]
+          required:
+            - code
+            - message
+      required:
+        - error
+
+  responses:
+    BadRequest:
+      description: Bad request - Invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "BAD_REQUEST"
+              message: "Invalid request parameters"
+              details: ["accountId must be a valid identifier"]
+
+    Unauthorized:
+      description: Unauthorized - Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Authentication required"
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "FORBIDDEN"
+              message: "Insufficient permissions to access this resource"
+
+    NotFound:
+      description: Not found - Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: "NOT_FOUND"
+              message: "Resource not found"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer token authentication
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Authorization
+    description: Authorization check operations
+  - name: Roles
+    description: Operations related to role management
+  - name: User Roles
+    description: Operations related to user role queries
+  - name: Role Assignments
+    description: Operations for assigning, updating, and revoking roles
