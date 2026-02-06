@@ -1,0 +1,618 @@
+openapi: 3.0.3
+info:
+  title: AION Firewall (Security Groups) API
+  description: |
+    API for managing firewall security groups and rules in AION Cloud Platform.
+    
+    Security groups act as virtual firewalls that control inbound and outbound traffic 
+    for resources within a project.
+  version: 1.0.0
+  contact:
+    name: AION Platform Team
+    email: platform@aion.xyz
+
+servers:
+  - url: https://api.aion.xyz
+    description: Production
+  - url: https://api.staging.aion.xyz
+    description: Staging
+  - url: http://localhost:8080
+    description: Local Development
+
+tags:
+  - name: Security Groups
+    description: Firewall security group management
+
+paths:
+  /api/v1/accounts/{accountId}/projects/{projectId}/security-groups:
+    post:
+      tags:
+        - Security Groups
+      summary: Create a security group
+      description: Creates a new security group with optional rules for a project
+      operationId: createSecurityGroup
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/XAccountId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSecurityGroupRequest'
+            example:
+              project_id: "proj-abc123xyz-v1"
+              name: "web-servers-sg"
+              description: "Security group for web servers"
+              rules:
+                - direction: "ingress"
+                  protocol: "tcp"
+                  port_range_min: 80
+                  port_range_max: 80
+                  remote_ip_prefix: "0.0.0.0/0"
+                  description: "Allow HTTP traffic"
+                - direction: "ingress"
+                  protocol: "tcp"
+                  port_range_min: 443
+                  port_range_max: 443
+                  remote_ip_prefix: "0.0.0.0/0"
+                  description: "Allow HTTPS traffic"
+                - direction: "ingress"
+                  protocol: "tcp"
+                  port_range_min: 22
+                  port_range_max: 22
+                  remote_ip_prefix: "10.0.0.0/8"
+                  description: "Allow SSH from internal network"
+      responses:
+        '201':
+          description: Security group created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateSecurityGroupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    get:
+      tags:
+        - Security Groups
+      summary: List security groups
+      description: Lists all security groups for a project with optional filtering and pagination
+      operationId: listSecurityGroups
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/XAccountId'
+        - name: page_size
+          in: query
+          description: Number of items per page (max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: page_token
+          in: query
+          description: Token for pagination
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum:
+              - active
+              - pending
+              - error
+              - deleting
+              - deleted
+      responses:
+        '200':
+          description: List of security groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListSecurityGroupsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/accounts/{accountId}/projects/{projectId}/security-groups/{securityGroupId}:
+    get:
+      tags:
+        - Security Groups
+      summary: Get a security group
+      description: Retrieves details of a specific security group including all its rules
+      operationId: getSecurityGroup
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/SecurityGroupId'
+        - $ref: '#/components/parameters/XAccountId'
+      responses:
+        '200':
+          description: Security group details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetSecurityGroupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Security Groups
+      summary: Update a security group
+      description: |
+        Updates a security group's name, description, metadata, and/or rules.
+        
+        When updating rules:
+        - Rules with `external_id` will be updated
+        - Rules without `external_id` will be created as new rules
+        - Existing rules not included in the request will remain unchanged
+      operationId: updateSecurityGroup
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/SecurityGroupId'
+        - $ref: '#/components/parameters/XAccountId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XRequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSecurityGroupRequest'
+            example:
+              name: "web-servers-sg-updated"
+              description: "Updated security group for web servers"
+              rules:
+                - external_id: "sgr-existing123-v1"
+                  direction: "ingress"
+                  protocol: "tcp"
+                  port_range_min: 8080
+                  port_range_max: 8080
+                  remote_ip_prefix: "0.0.0.0/0"
+                  description: "Updated: Allow traffic on port 8080"
+                - direction: "ingress"
+                  protocol: "tcp"
+                  port_range_min: 3000
+                  port_range_max: 3000
+                  remote_ip_prefix: "10.0.0.0/8"
+                  description: "New rule: Allow internal API traffic"
+      responses:
+        '200':
+          description: Security group updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateSecurityGroupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Security Groups
+      summary: Delete a security group
+      description: |
+        Deletes a security group and all its associated rules.
+        
+        **Note:** A security group cannot be deleted if it is currently attached to any resources.
+      operationId: deleteSecurityGroup
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - $ref: '#/components/parameters/ProjectId'
+        - $ref: '#/components/parameters/SecurityGroupId'
+        - $ref: '#/components/parameters/XAccountId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XRequestId'
+      responses:
+        '200':
+          description: Security group deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteSecurityGroupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflict - Security group is in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      description: Account external ID
+      schema:
+        type: string
+        pattern: '^acct-[a-zA-Z0-9]+-v1$'
+      example: "acct-abc123xyz-v1"
+
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      description: Project external ID
+      schema:
+        type: string
+        pattern: '^proj-[a-zA-Z0-9]+-v1$'
+      example: "proj-def456uvw-v1"
+
+    SecurityGroupId:
+      name: securityGroupId
+      in: path
+      required: true
+      description: Security group external ID
+      schema:
+        type: string
+        pattern: '^sg-[a-zA-Z0-9]+-v1$'
+      example: "sg-ghi789rst-v1"
+
+    XAccountId:
+      name: x-account-id
+      in: header
+      description: Account ID from authentication (must match path accountId)
+      schema:
+        type: string
+
+    XUserId:
+      name: x-user-id
+      in: header
+      description: User ID performing the action
+      schema:
+        type: string
+
+    XRequestId:
+      name: X-Request-ID
+      in: header
+      description: Unique request ID for tracing
+      schema:
+        type: string
+
+  schemas:
+    # Request Schemas
+    CreateSecurityGroupRequest:
+      type: object
+      required:
+        - project_id
+        - name
+      properties:
+        project_id:
+          type: string
+          description: Project external ID
+          example: "proj-abc123xyz-v1"
+        name:
+          type: string
+          description: Security group name
+          minLength: 1
+          maxLength: 255
+          example: "web-servers-sg"
+        description:
+          type: string
+          description: Optional description
+          example: "Security group for web server instances"
+        rules:
+          type: array
+          description: Initial firewall rules
+          items:
+            $ref: '#/components/schemas/SecurityGroupRuleInput'
+        metadata:
+          type: object
+          description: Optional metadata key-value pairs
+          additionalProperties: true
+
+    UpdateSecurityGroupRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Updated security group name
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          description: Updated description
+        rules:
+          type: array
+          description: Rules to create or update
+          items:
+            $ref: '#/components/schemas/SecurityGroupRuleUpdateInput'
+        metadata:
+          type: object
+          description: Updated metadata
+          additionalProperties: true
+
+    SecurityGroupRuleInput:
+      type: object
+      required:
+        - direction
+        - protocol
+      properties:
+        direction:
+          type: string
+          enum:
+            - ingress
+            - egress
+          description: Traffic direction
+        protocol:
+          type: string
+          description: Protocol (tcp, udp, icmp, or protocol number)
+          example: "tcp"
+        port_range_min:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: Start of port range
+        port_range_max:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: End of port range
+        remote_ip_prefix:
+          type: string
+          description: CIDR notation for allowed IP range
+          example: "0.0.0.0/0"
+        remote_security_group_id:
+          type: string
+          description: Allow traffic from another security group
+          example: "sg-other123-v1"
+        icmp_type:
+          type: integer
+          description: ICMP type (for ICMP protocol)
+        icmp_code:
+          type: integer
+          description: ICMP code (for ICMP protocol)
+        priority:
+          type: integer
+          description: Rule priority (lower = higher priority)
+          default: 100
+        description:
+          type: string
+          description: Rule description
+
+    SecurityGroupRuleUpdateInput:
+      allOf:
+        - $ref: '#/components/schemas/SecurityGroupRuleInput'
+        - type: object
+          properties:
+            external_id:
+              type: string
+              description: External ID of existing rule to update (omit for new rules)
+              example: "sgr-abc123-v1"
+
+    # Response Schemas
+    SecurityGroupRule:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Rule external ID
+          example: "sgr-abc123xyz-v1"
+        security_group_id:
+          type: string
+          description: Parent security group ID
+        direction:
+          type: string
+          enum:
+            - ingress
+            - egress
+        protocol:
+          type: string
+        port_range_min:
+          type: integer
+        port_range_max:
+          type: integer
+        remote_ip_prefix:
+          type: string
+        remote_security_group_id:
+          type: string
+        icmp_type:
+          type: integer
+        icmp_code:
+          type: integer
+        priority:
+          type: integer
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    SecurityGroup:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Security group external ID
+          example: "sg-abc123xyz-v1"
+        account_id:
+          type: string
+          description: Account external ID
+        project_id:
+          type: string
+          description: Project external ID
+        name:
+          type: string
+          description: Security group name
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+            - pending
+            - error
+            - deleting
+            - deleted
+        metadata:
+          type: object
+          additionalProperties: true
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecurityGroupRule'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        is_deleted:
+          type: boolean
+
+    CreateSecurityGroupResponse:
+      type: object
+      properties:
+        security_group:
+          $ref: '#/components/schemas/SecurityGroup'
+        message:
+          type: string
+          example: "Security group created successfully"
+
+    GetSecurityGroupResponse:
+      type: object
+      properties:
+        security_group:
+          $ref: '#/components/schemas/SecurityGroup'
+        message:
+          type: string
+
+    UpdateSecurityGroupResponse:
+      type: object
+      properties:
+        security_group:
+          $ref: '#/components/schemas/SecurityGroup'
+        message:
+          type: string
+          example: "Security group updated successfully"
+
+    DeleteSecurityGroupResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Security group deleted successfully"
+
+    ListSecurityGroupsResponse:
+      type: object
+      properties:
+        security_groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecurityGroup'
+        next_page_token:
+          type: string
+          description: Token for next page (empty if no more pages)
+        total_count:
+          type: integer
+          description: Total number of security groups
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          description: Additional error details
+
+  responses:
+    BadRequest:
+      description: Bad request - Invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Validation failed: name is required"
+            code: "BAD_REQUEST"
+
+    Unauthorized:
+      description: Unauthorized - Authentication required or account mismatch
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "account_id mismatch between header and path"
+            code: "UNAUTHORIZED"
+
+    NotFound:
+      description: Not found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Security group not found"
+            code: "NOT_FOUND"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Internal server error"
+            code: "INTERNAL_ERROR"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from authentication service
+
+security:
+  - BearerAuth: []
