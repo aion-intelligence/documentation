@@ -24,9 +24,17 @@
             ]
           },
           {
+            "group": "Cookbooks",
+            "pages": [
+              "playbooks/vllm-playbook",
+              "playbooks/ray-playbook"
+            ]
+          },
+          {
             "group": "Monitoring",
             "pages": [
-              "observability/observability-gpu"
+              "observability/observability-gpu",
+              "guides/gpu-cluster-observability"
             ]
           },
           {
@@ -41,8 +49,7 @@
             "group": "Guides",
             "pages": [
               "guides/checkpoint-s3",
-              "guides/training-runbook",
-              "guides/gpu-cluster-observability"
+              "guides/training-runbook"
             ]
           },
           {
@@ -51,6 +58,7 @@
               "data-security"
             ]
           }
+          
 
           
         ]
