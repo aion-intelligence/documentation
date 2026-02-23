@@ -1,0 +1,88 @@
+---
+title: "Create and Manage Your API Keys"
+sidebarTitle: "API Keys"
+description: "Generate API keys for programmatic access, copy them once at creation, and manage or delete keys from the AION console."
+---
+
+#### Step 1: Open the API Keys page
+
+In the left sidebar, navigate to `Management → API Keys`. API keys let you authenticate programmatic requests to AION services.
+
+#### Step 2: Start adding a new API key
+
+Click the green `Add API Key +` button (top-right).
+
+#### Step 3: Name and create the key
+
+In the `Add API Key` dialog:
+
+1. Enter a recognizable `Key Name` (example: `MyAPIkey` or `prod-ci-key`).
+2. Click `Add API Key`.
+
+#### Step 4: Copy the API key (you can only view it once)
+
+After creation, you’ll see the `API Key Created` dialog with your new key displayed.
+
+1. Click the copy icon to copy the full API key.
+2. Click `I've copied the key` to close the dialog.
+
+> `Important:` You **won’t be able to see this API key again** after closing the dialog.
+>
+> Store it securely (for example, in a password manager or a secrets manager).
+
+#### Step 5: Verify the key is added
+
+Back on the API Keys page, your key appears in the list with:
+- `Name`
+- `Status` (example: `Active`)
+- `Created At`
+- `API Key` (partially masked)
+
+---
+
+#### Optional: Use the API key locally
+
+`Example (bash):`
+
+```bash
+export AION_API_KEY="YOUR_API_KEY"
+````
+
+Then use it in your requests (header name may differ depending on the API you’re calling):
+
+```bash
+curl -H "Authorization: Bearer $AION_API_KEY" https://api.example.com/v1/...
+```
+
+> `Note:` Replace the endpoint and auth header format based on the specific AION API you are using.
+
+
+#### Optional: Delete an API key
+
+> `Warning:` Deleting an API key is permanent and cannot be undone. Any services using this key will immediately lose access.
+
+1. In the API Keys list, click `Delete` on the key you want to remove.
+2. In the confirmation dialog, type the exact key name shown.
+3. Click `I understand the consequences. DELETE this resource`.
+
+
+### Best practices
+
+* Create separate keys per environment (dev/stage/prod) and per workload (CI, local, services).
+* Rotate keys regularly and delete unused keys.
+* Never commit API keys to source control.
+* Store keys in a secrets manager (recommended) instead of plain-text files.
+
+
+#### Video Walkthrough
+
+<div style={{ position: "relative", paddingTop: "56.25%" }}>
+  <iframe
+    src="https://player.vimeo.com/video/REPLACE_WITH_API_KEYS_VIDEO_ID?badge=0&autopause=0"
+    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+    frameBorder="0"
+    allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"
+    referrerPolicy="strict-origin-when-cross-origin"
+  />
+</div>
+

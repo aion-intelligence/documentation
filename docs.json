@@ -24,6 +24,14 @@
             ]
           },
           {
+            "group": "Security",
+            "pages": [
+              "security/firewall",
+              "security/api-keys",
+              "security/iam"
+            ]
+          },
+          {
             "group": "Cookbooks",
             "pages": [
               "playbooks/vllm-playbook",
