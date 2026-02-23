@@ -34,6 +34,8 @@
           {
             "group": "Cookbooks",
             "pages": [
+
+              "playbooks/gradio-playbook",
               "playbooks/vllm-playbook",
               "playbooks/ray-playbook"
             ]
