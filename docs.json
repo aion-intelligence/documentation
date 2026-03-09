@@ -24,8 +24,18 @@
             ]
           },
           {
+            "group": "Security",
+            "pages": [
+              "security/firewall",
+              "security/api-keys",
+              "security/iam"
+            ]
+          },
+          {
             "group": "Cookbooks",
             "pages": [
+
+              "playbooks/gradio-playbook",
               "playbooks/vllm-playbook",
               "playbooks/ray-playbook"
             ]
