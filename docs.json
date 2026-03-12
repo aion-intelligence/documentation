@@ -76,6 +76,34 @@
         "tab": "API reference",
         "groups": [
           {
+            "group": "GPU Cluster API",
+            
+            "pages": [
+              "api-reference/api/v1/accounts/projects/gpu-clusters/post",
+              "api-reference/api/v1/accounts/projects/gpu-clusters/get",
+              "api-reference/api/v1/accounts/projects/gpu-clusters/externalId/get",
+              "api-reference/api/v1/accounts/projects/gpu-clusters/externalId/delete"
+            ]
+          },
+          {
+            "group": "Kubernetes Service API",
+            
+            "pages": [
+              "api-reference/api/v1/accounts/projects/kubernetes/get",
+              "api-reference/api/v1/accounts/projects/kubernetes/post",
+              "api-reference/api/v1/accounts/projects/kubernetes/clusterId/get",
+              "api-reference/api/v1/accounts/projects/kubernetes/clusterId/delete",
+              "api-reference/api/v1/accounts/projects/kubernetes/clusterId/apps/get",
+              "api-reference/api/v1/accounts/projects/kubernetes/clusterId/apps/post",
+              "api-reference/api/v1/accounts/projects/kubernetes/clusterId/apps/appId/get",
+              "api-reference/api/v1/accounts/projects/kubernetes/clusterId/apps/appId/put",
+              "api-reference/api/v1/accounts/projects/kubernetes/clusterId/apps/appId/delete",
+              "api-reference/api/v1/marketplace/kubernetes/apps/get",
+              "api-reference/api/v1/marketplace/kubernetes/apps/appName/get"
+
+            ]
+          },
+          {
             "group": "Health",
             
             "pages": [
