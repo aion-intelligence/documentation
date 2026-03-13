@@ -12,6 +12,7 @@ Start by navigating to AION and opening the Kubernetes console.
 2. The Kubernetes page shows a world map and region cards with available GPU clusters, GPU types, and pricing.
 
 You will see cards for each region describing GPU type, availability, RAM, interconnect and price.
+    <img src="/gifs/k8s-provision.gif" width="500" />
 
 #### Step 2: Choose a region / cluster and provision
 
@@ -24,6 +25,7 @@ You will see cards for each region describing GPU type, availability, RAM, inter
 3. Click `Provision` on the card for the region/cluster you want to deploy.
 
 After you click `Provision`, you will move to the project selection step.
+    <img src="/images/screens/k8s-provision.png" width="500" />
 
 #### Step 3: Create or select a project
 
@@ -33,9 +35,12 @@ You must either pick an existing project or create a new one before launching a 
 2. If creating a new project, fill in:
     - `Project Name` (required)
     - `Project Description` (optional)
+
 3. Click `Next` to proceed to the cluster configuration step.
 
 Your project will appear in the project dropdown when creating or managing clusters.
+    <img src="/images/screens/k8s-project.png" width="500" />
+
 
 #### Step 4: Configure the cluster and launch
 
@@ -52,7 +57,7 @@ Define the cluster configuration and launch it.
 3. Click the green `Launch` button to create the cluster.
 
 The cluster will show a status such as `Initializing` while nodes come up.
-
+    <img src="/gifs/k8s-launch.gif" width="500" />
 #### Step 5: Retrieve the Kubeconfig command
 
 Once the cluster is created it will appear in the `Current cluster` section.

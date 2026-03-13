@@ -1,0 +1,931 @@
+openapi: 3.0.3
+info:
+  title: KubernetesService API
+  version: 1.0.0
+
+paths:
+  /api/v1/accounts/{accountId}/projects/{projectId}/kubernetes:
+    get:
+      tags: [Kubernetes]
+      summary: List Kubernetes clusters
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: x-user-id
+          required: false
+          schema:
+            type: string
+        - in: header
+          name: x-kong-request-id
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: offset
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListClustersResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal Server Error
+
+    post:
+      tags: [Kubernetes]
+      summary: Create Kubernetes cluster
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClusterRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateClusterResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal Server Error
+
+  /api/v1/accounts/{accountId}/projects/{projectId}/kubernetes/{clusterId}:
+    get:
+      tags: [Kubernetes]
+      summary: Get Kubernetes cluster
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: clusterId
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: x-user-id
+          required: false
+          schema:
+            type: string
+        - in: header
+          name: x-kong-request-id
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetClusterResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Not Found
+        '500':
+          description: Internal Server Error
+
+    delete:
+      tags: [Kubernetes]
+      summary: Delete Kubernetes cluster
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: clusterId
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: x-user-id
+          required: false
+          schema:
+            type: string
+        - in: header
+          name: x-kong-request-id
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteClusterResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal Server Error
+
+  /api/v1/accounts/{accountId}/projects/{projectId}/kubernetes/{clusterId}/apps:
+    get:
+      tags: [KubernetesApps]
+      summary: List installed apps on a cluster
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: clusterId
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: x-user-id
+          required: false
+          schema:
+            type: string
+        - in: header
+          name: x-kong-request-id
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: offset
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListInstalledAppsResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal Server Error
+
+    post:
+      tags: [KubernetesApps]
+      summary: Install app on a cluster
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: clusterId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstallAppRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallAppResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal Server Error
+
+  /api/v1/accounts/{accountId}/projects/{projectId}/kubernetes/{clusterId}/apps/{appId}:
+    get:
+      tags: [KubernetesApps]
+      summary: Get installed app details
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: clusterId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: appId
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: x-user-id
+          required: false
+          schema:
+            type: string
+        - in: header
+          name: x-kong-request-id
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetInstalledAppResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Not Found
+        '500':
+          description: Internal Server Error
+
+    put:
+      tags: [KubernetesApps]
+      summary: Update installed app
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: clusterId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: appId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAppRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateAppResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Not Found
+        '500':
+          description: Internal Server Error
+
+    delete:
+      tags: [KubernetesApps]
+      summary: Uninstall app from cluster
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: clusterId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: appId
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: x-user-id
+          required: false
+          schema:
+            type: string
+        - in: header
+          name: x-kong-request-id
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UninstallAppResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal Server Error
+
+  /api/v1/marketplace/kubernetes/apps:
+    get:
+      tags: [KubernetesMarketplace]
+      summary: List marketplace apps
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: offset
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListMarketplaceAppsResponse'
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+
+  /api/v1/marketplace/kubernetes/apps/{appName}:
+    get:
+      tags: [KubernetesMarketplace]
+      summary: Get marketplace app details
+      parameters:
+        - in: path
+          name: appName
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetMarketplaceAppResponse'
+        '400':
+          description: Bad Request
+        '404':
+          description: Not Found
+        '500':
+          description: Internal Server Error
+
+components:
+  schemas:
+    # ──────────────────────────────────────────────
+    # Cluster Request / Response
+    # ──────────────────────────────────────────────
+    CreateClusterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        flavor_id:
+          type: string
+        image_id:
+          type: string
+        ssh_key_id:
+          type: string
+        node_count:
+          type: integer
+          format: int64
+        k8s_version:
+          type: string
+        pod_cidr:
+          type: string
+        service_cidr:
+          type: string
+        cni_plugin:
+          type: string
+        cluster_agent_enabled:
+          type: boolean
+      required:
+        - name
+        - flavor_id
+        - image_id
+        - ssh_key_id
+        - node_count
+
+    CreateClusterResponse:
+      type: object
+      properties:
+        cluster:
+          $ref: '#/components/schemas/ClusterSummary'
+      required:
+        - cluster
+
+    GetClusterResponse:
+      type: object
+      properties:
+        cluster:
+          $ref: '#/components/schemas/ClusterDetails'
+      required:
+        - cluster
+
+    ListClustersResponse:
+      type: object
+      properties:
+        clusters:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterSummary'
+        total_count:
+          type: integer
+          format: int64
+        count:
+          type: integer
+          format: int64
+      required:
+        - clusters
+        - total_count
+        - count
+
+    DeleteClusterResponse:
+      type: object
+      properties:
+        cluster:
+          $ref: '#/components/schemas/ClusterDetails'
+      required:
+        - cluster
+
+    # ──────────────────────────────────────────────
+    # Cluster Models
+    # ──────────────────────────────────────────────
+    ClusterBase:
+      type: object
+      properties:
+        cluster_id:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/ClusterStatus'
+        account_id:
+          type: string
+        project_id:
+          type: string
+        cluster_endpoint:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - cluster_id
+        - name
+        - status
+        - account_id
+        - project_id
+        - created_at
+        - updated_at
+
+    ClusterStatus:
+      type: string
+      enum:
+        - CLUSTER_STATUS_UNSPECIFIED
+        - CLUSTER_STATUS_INITIALIZING
+        - CLUSTER_STATUS_ACTIVE
+        - CLUSTER_STATUS_DELETING
+        - CLUSTER_STATUS_DELETED
+        - CLUSTER_STATUS_ERROR
+
+    ClusterSummary:
+      type: object
+      properties:
+        base:
+          $ref: '#/components/schemas/ClusterBase'
+        node_count:
+          type: integer
+          format: int64
+        installed_apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstalledAppSummary'
+      required:
+        - base
+
+    ClusterDetails:
+      type: object
+      properties:
+        summary:
+          $ref: '#/components/schemas/ClusterSummary'
+        kubeconfig_path:
+          type: string
+        k8s_version:
+          type: string
+        pod_cidr:
+          type: string
+        service_cidr:
+          type: string
+        cni_plugin:
+          type: string
+        ssh_key_id:
+          type: string
+        cluster_agent_enabled:
+          type: boolean
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterNode'
+      required:
+        - summary
+
+    ClusterNode:
+      type: object
+      properties:
+        node_id:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/ClusterNodeStatus'
+        role:
+          $ref: '#/components/schemas/ClusterNodeRole'
+        primary_ip:
+          type: string
+        resource_type:
+          type: string
+        flavor_id:
+          type: string
+        os_image_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - node_id
+        - name
+        - status
+        - role
+        - created_at
+
+    ClusterNodeStatus:
+      type: string
+      enum:
+        - CLUSTER_NODE_STATUS_UNSPECIFIED
+        - CLUSTER_NODE_STATUS_PROVISIONING
+        - CLUSTER_NODE_STATUS_READY
+        - CLUSTER_NODE_STATUS_NOT_READY
+        - CLUSTER_NODE_STATUS_DELETING
+        - CLUSTER_NODE_STATUS_ERROR
+
+    ClusterNodeRole:
+      type: string
+      enum:
+        - CLUSTER_NODE_ROLE_UNSPECIFIED
+        - CLUSTER_NODE_ROLE_CONTROL_PLANE_WORKER
+        - CLUSTER_NODE_ROLE_WORKER
+
+    # ──────────────────────────────────────────────
+    # Installed App Request / Response
+    # ──────────────────────────────────────────────
+    InstallAppRequest:
+      type: object
+      properties:
+        app_name:
+          type: string
+        app_version:
+          type: string
+        user_config:
+          type: string
+      required:
+        - app_name
+
+    InstallAppResponse:
+      type: object
+      properties:
+        installed_app:
+          $ref: '#/components/schemas/InstalledAppDetails'
+      required:
+        - installed_app
+
+    GetInstalledAppResponse:
+      type: object
+      properties:
+        installed_app:
+          $ref: '#/components/schemas/InstalledAppDetails'
+      required:
+        - installed_app
+
+    ListInstalledAppsResponse:
+      type: object
+      properties:
+        installed_apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstalledAppSummary'
+        total_count:
+          type: integer
+          format: int64
+        count:
+          type: integer
+          format: int64
+      required:
+        - installed_apps
+        - total_count
+        - count
+
+    UpdateAppRequest:
+      type: object
+      properties:
+        app_version:
+          type: string
+        user_config:
+          type: string
+
+    UpdateAppResponse:
+      type: object
+      properties:
+        installed_app:
+          $ref: '#/components/schemas/InstalledAppDetails'
+      required:
+        - installed_app
+
+    UninstallAppResponse:
+      type: object
+      properties:
+        installed_app:
+          $ref: '#/components/schemas/InstalledAppDetails'
+      required:
+        - installed_app
+
+    # ──────────────────────────────────────────────
+    # Installed App Models
+    # ──────────────────────────────────────────────
+    InstalledAppBase:
+      type: object
+      properties:
+        app_id:
+          type: string
+        cluster_id:
+          type: string
+        marketplace_app:
+          $ref: '#/components/schemas/MarketplaceAppBase'
+      required:
+        - app_id
+        - cluster_id
+
+    InstalledAppSummary:
+      type: object
+      properties:
+        base:
+          $ref: '#/components/schemas/InstalledAppBase'
+        status:
+          $ref: '#/components/schemas/InstalledAppStatus'
+      required:
+        - base
+        - status
+
+    InstalledAppDetails:
+      type: object
+      properties:
+        summary:
+          $ref: '#/components/schemas/InstalledAppSummary'
+        revisions:
+          type: array
+          items:
+            $ref: '#/components/schemas/InstalledAppRevision'
+      required:
+        - summary
+
+    InstalledAppRevision:
+      type: object
+      properties:
+        revision:
+          type: string
+        app_version:
+          type: string
+        status:
+          $ref: '#/components/schemas/InstalledAppStatus'
+        user_config:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        status_conditions:
+          $ref: '#/components/schemas/StatusConditions'
+
+    InstalledAppStatus:
+      type: string
+      enum:
+        - INSTALLED_APP_STATUS_UNSPECIFIED
+        - INSTALLED_APP_STATUS_SUCCESS
+        - INSTALLED_APP_STATUS_FAILURE
+        - INSTALLED_APP_STATUS_STALLED
+        - INSTALLED_APP_STATUS_DEPRECATED
+        - INSTALLED_APP_STATUS_DELETING
+        - INSTALLED_APP_STATUS_DELETED
+
+    StatusConditions:
+      type: object
+      properties:
+        crds:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppCrd'
+
+    AppCrd:
+      type: object
+      properties:
+        crd:
+          type: string
+        reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatusReason'
+
+    StatusReason:
+      type: object
+      properties:
+        reason:
+          type: string
+        status:
+          $ref: '#/components/schemas/InstalledAppStatus'
+        last_updated:
+          type: string
+          format: date-time
+        message:
+          type: string
+
+    # ──────────────────────────────────────────────
+    # Marketplace Models
+    # ──────────────────────────────────────────────
+    ListMarketplaceAppsResponse:
+      type: object
+      properties:
+        apps:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplaceAppSummary'
+        total_count:
+          type: integer
+          format: int64
+        count:
+          type: integer
+          format: int64
+      required:
+        - apps
+        - total_count
+        - count
+
+    GetMarketplaceAppResponse:
+      type: object
+      properties:
+        app:
+          $ref: '#/components/schemas/MarketplaceAppDetails'
+      required:
+        - app
+
+    MarketplaceAppBase:
+      type: object
+      properties:
+        app_name:
+          type: string
+        display_name:
+          type: string
+        description:
+          type: string
+        icon_url:
+          type: string
+        documentation_url:
+          type: string
+
+    MarketplaceAppSummary:
+      type: object
+      properties:
+        base:
+          $ref: '#/components/schemas/MarketplaceAppBase'
+        latest_app_version:
+          type: string
+      required:
+        - base
+
+    MarketplaceAppDetails:
+      type: object
+      properties:
+        summary:
+          $ref: '#/components/schemas/MarketplaceAppSummary'
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketplaceAppVersion'
+      required:
+        - summary
+
+    MarketplaceAppVersion:
+      type: object
+      properties:
+        version:
+          type: string
+        schema:
+          type: object
+          additionalProperties:
+            type: string
+        is_latest:
+          type: boolean
